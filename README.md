@@ -11,3 +11,6 @@ the radio configuration can be changed. There is also a SPI channel to connect a
 a regulator.
 
 Power output is +12 dBm, and the radio speed is currently 1 Mbps.
+
+Up til now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
+NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK and other new usage of the 23 cm HAM radio band.
