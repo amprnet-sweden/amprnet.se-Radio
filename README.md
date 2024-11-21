@@ -1,1 +1,1 @@
-# npr23
+# amprnet-radio.se
