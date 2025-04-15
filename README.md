@@ -14,6 +14,8 @@ a regulator.
 
 There is also a I2C port where a 2x16 or 4x20 character LCD can be connected, useful when doing mobile survey.
 
+A "breakout" PCB has been made, that brings out these interfaces to wire wrap pins similar to arduinos and the like. There is a 3.3V regulator on board.
+
 Power output is +12 dBm, and the radio speed is currently 1 Mbps.
 
 Up until now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
