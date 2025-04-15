@@ -1,6 +1,6 @@
 # amprnet-radio.se
 
-NOTE THAT YOU HAVE TO HAVE A VALID HAM RADIO LICENSE TO USE THIS RADIO !!
+**** NOTE THAT YOU HAVE TO HAVE A VALID HAM RADIO LICENSE TO USE THIS RADIO ****
 
 This is an attempt to create a 23 cm packet radio platform using a Texas Instrument CC1312 radio processor. According to specifications this chip can operate
 in the 1076 - 1315 Mhz band, however there is very little support from TI for this frequency range. 
