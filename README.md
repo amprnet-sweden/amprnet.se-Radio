@@ -2,8 +2,8 @@
 
 **** NOTE THAT YOU HAVE TO HAVE A VALID HAM RADIO LICENSE TO USE THIS RADIO ****
 
-This is an attempt to create a 23 cm packet radio platform using a Texas Instrument CC1312 radio processor. According to specifications this chip can operate
-in the 1076 - 1315 Mhz band, however there is very little support from TI for this frequency range. 
+This is an attempt to create a 23 cm packet radio platform using a Texas Instrument CC1312 or CC1314R10 radio processor. According to specifications this chip can
+operate in the 1076 - 1315 Mhz band, however there is very little support from TI for this frequency range. 
 
 After successfully programming the radio to this band some preliminary code has been written that implements a serial to RF bridge, where two radios can be set 
 up to work as a virtual serial wire, and ethernet to ethernet bridging using a w5500 ethernet module.
@@ -16,8 +16,8 @@ There is also a I2C port where a 2x16 or 4x20 character LCD can be connected, us
 
 Power output is +12 dBm, and the radio speed is currently 1 Mbps.
 
-Up til now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
-NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK and other new usage of the 23 cm HAM radio band.
+Up until now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
+NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK or other new usage of the 23 cm HAM radio band.
 
 Version 0.93b is now current at 2025/04/15 and allows:
 
