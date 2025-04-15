@@ -22,5 +22,6 @@ NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK and other new usag
 Version 0.93b is now current at 2025/04/15 and allows:
 
 1  Serial to serial over a 23 cm channel
+
 2  Ethernet to ethernet bridging
 
