@@ -45,7 +45,7 @@ So in summary; Use the 23 cm band or loose it to some other service.
 
 TO COMPILE  YOU NEED THIS
 
-CCSTUDIO V 12.8.1		(I could not get 20.X to wor properly)
+CCSTUDIO V 12.8.1		(I could not get 20.X to work properly)
 
 SIMPLELINK-LOWPOWER-F2-SDK 8.30.01.01
 
