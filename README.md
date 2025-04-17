@@ -51,3 +51,13 @@ SIMPLELINK-LOWPOWER-F2-SDK 8.30.01.01
 
 If you want to be able to program/debug you also need a USB-Jtag device, I have used the LP-XDS110ET from TI, it is supported by CCS and is low cost.
 
+Easiest way to start is to install the CCS, the processor SDK, and create an example by importing the GCC + NORTOS rfUARTbridge example from trhe SDK.
+
+Compile and test that you get a valid image.
+
+Replace all files from this git onto that directory.
+
+Rebuild, and you should have the V 0.93b firmware. 
+
+Gullik / SM4FBD
+
