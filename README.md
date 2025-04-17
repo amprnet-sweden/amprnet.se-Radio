@@ -46,6 +46,7 @@ So in summary; Use the 23 cm band or loose it to some other service.
 TO COMPILE  YOU NEED THIS
 
 CCSTUDIO V 12.8.1		(I could not get 20.X to wor properly)
+
 SIMPLELINK-LOWPOWER-F2-SDK 8.30.01.01
 
 If you want to be able to program/debug you also need a USB-Jtag device, I have used the LP-XDS110ET from TI, it is supported by CCS and is low cost.
