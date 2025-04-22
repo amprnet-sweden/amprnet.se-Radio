@@ -27,7 +27,7 @@ Version 0.93b is now current at 2025/04/15 and allows:
 
 2  Ethernet to ethernet bridging
 
-Why buid an amprnet radio?
+# Why build an amprnet radio?
 
 Ham radio operators own most of the 44-net, i.e. all IPV4 addresses that begin with 44...... There are networks built within the AmprNet community in several countries across the world.
 Most of these links are created with 2.4 Ghz Wifi radio, that incidently map onto he 13 cm HAM band. However, this equipment is not suited for amateurs to tamper with, in some countries
@@ -43,7 +43,7 @@ So in summary; Use the 23 cm band or loose it to some other service.
 	Do something technical and move the ham community forward a bit.
 	Have fun and target a younger more Internet focused part of the population to use HAM radio.
 
-TO COMPILE  YOU NEED THIS
+# TO COMPILE  YOU NEED THIS
 
 CCSTUDIO V 12.8.1		(I could not get 20.X to work properly)
 
