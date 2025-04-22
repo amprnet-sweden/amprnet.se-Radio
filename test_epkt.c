@@ -1,3 +1,9 @@
+/* copyright Gullik Webjörn, SM4FBD 
+This is just a test function for the ethernet driver. It uses packets with protocol type
+60-06 which was registered to users of DEC machines for their own hacky ethernet protocols 
+There is a corresponding packet generator for Linux so that packets can be sent with a 
+programmable interval, and a receiver can check that all were transmitted. */
+
 #include <stdint.h>
 #include "Ampr-radio.h"
 int nxtpkt;
