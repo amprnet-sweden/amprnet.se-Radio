@@ -60,7 +60,7 @@ Replace all files from this git onto that directory.
 Rebuild, and you should have the V 0.93b firmware. 
 
 NOTE!! this code is based on one "big loop", and we really need a RTOS, since that prevents blocking I/O to lock the CPU up. The reason for doing this first version in
-this ugly way, is simply "KISS", "Keep it simple stupid". This causes a *real* problem with Ethernet performance, so nex version will be RTOS based. The main loop executes
+this ugly way, is simply "KISS", "Keep it simple stupid". This causes a *real* problem with Ethernet performance, so next version will be RTOS based. The main loop executes
 in 17 uS when nothing happens, so we get decent latency, but it is unknown what percentage we "waste" in various blocking I/O's. Most input is based on callbacks.
 
 
