@@ -4,7 +4,7 @@
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
- * are met:
+ * are met:_int
  *
  * *  Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
@@ -30,17 +30,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Copyright to the modifications by Gullik Webjörn, SM4FBD */
+
 /***** Includes *****/
 
 /* Standard C Libraries */
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 
 
 /* TI Drivers */
 #include <ti/drivers/rf/RF.h>
 #include <ti/drivers/GPIO.h>
+#include <ti/drivers/NVS.h>
+#include <ti/drivers/SPI.h>
+#include <ti/drivers/Timer.h>
+Timer_Handle    Timhandle;
+Timer_Params    Timparams;
 
 /* Driverlib Header files */
 #include DeviceFamily_constructPath(driverlib/rf_prop_mailbox.h)
@@ -50,38 +58,69 @@
 
 /* Application Header files */
 #include "RFQueue.h"
+#include "Ampr-radio.h"
 #include <ti_radio_config.h>
 
 /* ======== uart2 ======== */
 #include <ti/drivers/UART2.h>
-
+#include <ti/drivers/Temperature.h>
+#include <ti/devices/cc13x1_cc26x1/driverlib/aon_batmon.h>
+#include <ti/devices/cc13x1_cc26x1/driverlib/ioc.h>
 /***** Defines *****/
+#define HAM23CMRADIO 1
 
 /* Packet RX Configuration */
 #define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
-#define MAX_LENGTH             64 /* Max length byte the radio will accept */
-#define NUM_DATA_ENTRIES       2  /* NOTE: Only two data entries supported at the moment */
+//#define MAX_LENGTH             64 /* Max length byte the radio will accept */
+#define MAX_LENGTH             255 /* Max length byte the radio will accept if one size byte */
+#define NUM_DATA_ENTRIES       16  /* NOTE: Only two data entries supported at the moment */
 #define NUM_APPENDED_BYTES     2  /* The Data Entries data field will contain:
                                    * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
                                    * Max 30 payload bytes
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
 #define NO_PACKET              0
 #define PACKET_RECEIVED        1
+#define Nsize 64                // size of command buffer and get parameter buffer
 
 /*******Global variable declarations*********/
 static RF_Object rfObject;
 static RF_Handle rfHandle;
+
 RF_CmdHandle rfPostHandle;
 
 UART2_Handle uart;
 UART2_Params uartParams;
 
-static char         input[MAX_LENGTH];
+
+// nvram
+//#define NVS_REGIONS_BASE 0x48000
+NVS_Handle nvsHandle;
+//NVS_Params nvsParams;
+NVS_Attrs regionAttrs;
+
+//char flashBuf0[0x2000] __attribute__ ((at(0x48000)));
+//char flashBuf0[0x2000]  __attribute__ ((retain, noinit, at(0x48000)));
+char flashBuf0[0x2000] __attribute__((section(".nvs"), used));
+// Packet counters
+
+unsigned int Recd = 0;
+unsigned int Sent = 0;
+unsigned int Bad = 0;
+
+static uint8_t         input[MAX_LENGTH+2];
 int32_t             UARTwrite_semStatus;
 int_fast16_t        status = UART2_STATUS_SUCCESS;
 volatile uint8_t packetRxCb;
-volatile size_t bytesReadCount;
-
+volatile uint16_t bytesReadCount;
+unsigned int Runtime;
+unsigned int Timer_per = 200; //periodeic timer, 20000 * 10 uS = 200 mS
+unsigned int Timer_def = 1;  // defer timer *** problem, should be possible to set .1 mS
+unsigned int Timer_tdm = 1000; // tdma timer
+unsigned int Timer0 = 500;
+unsigned int Timer1 = 0;
+extern int EthEna;
+extern int tdelay;
+int parchange;
 /* Buffer which contains all Data Entries for receiving data.
  * Pragmas are needed to make sure this buffer is 4 byte aligned (requirement from the RF Core) */
 #if defined(__TI_COMPILER_VERSION__)
@@ -112,15 +151,142 @@ static rfc_dataEntryGeneral_t* currentDataEntry;
 static uint8_t packetLength;
 static uint8_t* packetDataPointer;
 
-static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES - 1]; /* The length byte is stored in a separate variable */
+//static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES - 1]; /* The length byte is stored in a separate variable */
+static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES]; /* The length byte is stored in a separate variable */
 
 /***** Function definitions *****/
 static void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e);
 static void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
+static void TimerCallbackFunction(void);
+//static void w5500int(uint_least8_t index);
+
+struct Settings {
+    unsigned int frequency;
+    unsigned char myaddr;
+    unsigned char peeraddr;
+    unsigned char mode;
+};
+char GetRssi() {
+    return(RF_getRssi(rfHandle));
+}
+
+void RX_OFF(void) {
+//    int status;
+      RF_cancelCmd(rfHandle, rfPostHandle, 1);
+}
+
+void RX_ON(void) {
+//    int status;
+    rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
+                                                         RF_PriorityNormal, &ReceivedOnRFcallback,
+                                                         RF_EventRxEntryDone);
+}
+
+void RF_XMIT(uint8_t *message,char count) {
+    int status,col;
+    if (count >= 254)
+        count = 254;
+
+/*    for (i=0; i<count; i++)
+    {
+        packet[i] = message[i];
+    } */
+//    delay(1);
+    RF_cmdPropTx.pktLen = count;
+    RF_cmdPropTx.pPkt = message;
+    col = 0;
+//    while(RF_getRssi(rfHandle) >= -100) {col=1;}   // poor mans cca, hang here until rssi is below -100,
+    if(col) rfcollision++;
+//    delay(tdelay);
+    status = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
+    if(status != 2) {
+        xprint("what?");
+    }
+/*    if((packet[0] == 0x0f) && (packet[11] != 0x55)) {
+        xprint(" S bad ");
+        xprint_xchar(packet[11]);
+        xprint("\n");
+    } */
+    Sent++;
+    GPIO_toggle(CONFIG_GPIO_GLED);
+
+}
+void SendPacket(uint8_t  *message,char count){
+
+       /*Cancel the ongoing command*/
+       RX_OFF();
+       /*Send packet*/
+       RF_XMIT(message, count);
+//       status = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
+       /* Resume RF RX */
+       RX_ON();
+}
+void SendText(uint8_t *sndbuf,int length) {
+       status = UART2_write(uart, sndbuf, length, NULL);
+       if (status != UART2_STATUS_SUCCESS) {
+//                     UART2_write() failed
+           while (1);
+       }
+}
+// Overrides for CMD_PROP_RADIO_DIV_SETUP
+uint32_t our_overrides[] =
+{
+    // override_txsub1_placeholder.xml
+    // The TX Power element should always be the first in the list
+    TXSUB1_POWER_OVERRIDE(0x003F),
+    // override_prop_common.xml
+    // Tx: Set DCDC settings IPEAK=7, dither = off
+    (uint32_t)0x004388D3,
+    // override_prop_common_sub1g.xml
+    // TX: Set FSCA divider bias to 1
+    HW32_ARRAY_OVERRIDE(0x405C,0x0001),
+    // TX: Set FSCA divider bias to 1
+    (uint32_t)0x08141131,
+    // override_tc782.xml
+    // Tx: Configure PA ramp time, PACTL2.RC=0x1 (in ADI0, set PACTL2[4:3]=0x1)
+    ADI_2HALFREG_OVERRIDE(0,16,0x8,0x8,17,0x1,0x1),
+    // Rx: Set AGC reference level to 0x2E
+    HW_REG_OVERRIDE(0x609C,0x002E),
+    // Rx: Set RSSI offset to adjust reported RSSI by -4 dB at 779-930 MHz
+    (uint32_t)0x000488A3,
+    // Set LNA IB boost to 2
+    ADI_HALFREG_OVERRIDE(0,5,0xF,0x2),
+    // Rx: Set anti-aliasing filter bandwidth to 0x0 (in ADI0, set IFAMPCTL3[7:4]=0x0)
+    ADI_HALFREG_OVERRIDE(0,61,0xF,0x0),
+    // Tx: Configure PA ramping, set wait time before turning off (0x1A ticks of 16/24 us = 17.3 us).
+    HW_REG_OVERRIDE(0x6028,0x001A),
+    // TX: set intFreq = 0
+    (uint32_t)0x00000343,
+    (uint32_t)0xFFFFFFFF
+};
 
 void *mainThread(void *arg0)
 {
+//    char idle; // time left indicator
+    uint8_t buff[Nsize];
+//    char chk = 0;
     packetRxCb = NO_PACKET;
+
+    SPI_init();
+    NVS_init();
+//    NVS_Params_init(&nvsParams);
+
+    Timer_Params_init(&Timparams);
+    Timparams.periodUnits = Timer_PERIOD_HZ;
+    Timparams.period = 1000;
+    Timparams.timerMode  = Timer_CONTINUOUS_CALLBACK;
+    Timparams.timerCallback = (void *)TimerCallbackFunction;
+    //
+    Timhandle = Timer_open(CONFIG_TIMER_0, &Timparams);
+    if (Timhandle == NULL) {
+        // Timer_open() failed
+        while (1);
+    }
+    status = Timer_start(Timhandle);
+    if (status == Timer_STATUS_ERROR) {
+        //Timer_start() failed
+        while (1);
+    }
 
     RF_Params rfParams;
     RF_Params_init(&rfParams);
@@ -134,6 +300,8 @@ void *mainThread(void *arg0)
         /* Failed to allocate space for all data entries */
         while(1);
     }
+//    GPIO_setConfig(1,GPIO_CFG_IN_PU);
+//    GPIO_setConfig(2,GPIO_CFG_IN_PU);
 
     GPIO_setConfig(CONFIG_GPIO_RLED, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
     GPIO_write(CONFIG_GPIO_RLED, CONFIG_GPIO_LED_OFF);
@@ -141,23 +309,40 @@ void *mainThread(void *arg0)
     GPIO_setConfig(CONFIG_GPIO_GLED, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
     GPIO_write(CONFIG_GPIO_GLED, CONFIG_GPIO_LED_OFF);
 
+    IOCPortConfigureSet(LNA_HIGH, IOC_PORT_RFC_GPO0,IOC_IOMODE_NORMAL);
+    IOCPortConfigureSet(PA_HIGH, IOC_PORT_RFC_GPO1,IOC_IOMODE_NORMAL);
+    IOCPortConfigureSet(TX_HIGH, IOC_PORT_RFC_GPO3,IOC_IOMODE_NORMAL);
+    /*  toggle led pins to show module is alive */
+        GPIO_toggle(CONFIG_GPIO_GLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_RLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_GLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_RLED);
+        delay(1000);
+
+// set up the interrupt pin
+//    GPIO_setCallback(EINT, w5500int);
+//    GPIO_enableInt(EINT);
     /*Modifies settings to be able to do RX*/
     /* Set the Data Entity queue for received data */
     RF_cmdPropRx.pQueue = &dataQueue;
     /* Discard ignored packets from Rx queue */
     RF_cmdPropRx.rxConf.bAutoFlushIgnored = 1;
+    /* Hook rssi to end of packet GW 0.3 */
+    RF_cmdPropRx.rxConf.bAppendRssi = 1;
     /* Discard packets with CRC error from Rx queue */
     RF_cmdPropRx.rxConf.bAutoFlushCrcErr = 1;
     /* Implement packet length filtering to avoid PROP_ERROR_RXBUF */
     RF_cmdPropRx.maxPktLen = MAX_LENGTH;
     RF_cmdPropRx.pktConf.bRepeatOk = 1;
     RF_cmdPropRx.pktConf.bRepeatNok = 1;
-
+    /* transmit properties */
     RF_cmdPropTx.pPkt = packet;
     RF_cmdPropTx.startTrigger.triggerType = TRIG_NOW;
-
     /* Set the max amount of bytes to read via UART */
-    size_t bytesToRead = MAX_LENGTH;
+//    size_t bytesToRead = MAX_LENGTH;
 
     bytesReadCount = 0;
 
@@ -168,15 +353,66 @@ void *mainThread(void *arg0)
     uartParams.readCallback = ReceiveonUARTcallback;
     uartParams.readReturnMode = UART2_ReadReturnMode_PARTIAL;
 
+    init_uart_1();
     /* Access UART */
     uart = UART2_open(CONFIG_UART2_0, &uartParams);
 
     /* Print to the terminal that the program has started */
     const char        startMsg[] = "\r\nRF-UART bridge started:\r\n";
     UART2_write(uart, startMsg, sizeof(startMsg), NULL);
+    start_terminal();
+    // Open NVS driver instance
+//    nvsHandle = NVS_open(CONFIG_INTERNAL, &nvsParams);
+    get_NVS(buff);
+    NVS_getAttrs(nvsHandle, &regionAttrs);
+    xprint("EthEna was = ");
+    xprint_char(EthEna);
+    xprint("\n");
+//    if (EthEna == 1) {
+      char stat = init_ether();
+//    }
+    printMAC();
+    myaddr = m6;    // set myaddr to last byte of MAC if not saved
+    xprint("\n");
+    NVS_close(nvsHandle);
+#if defined LCD
+    LcdEna = LCD_Begin();
+    if(LcdEna == 0) {
+        xprint("LCD ON");
+        delay(1);
+        LCD_Print(version);
+        delay(1);
+    } else {
+        xprint("NO LCD");
+    }
+#endif
+    xprint("\n");
+    xprint("$ ");
 
+    /* */
+#ifdef HAM23CMRADIO
+    RF_cmdPropRadioDivSetup.loDivider = 0x04;
+//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
+    RF_cmdPropRadioDivSetup.centerFreq = freq;
+//    RF_cmdPropRadioDivSetup.intFreq = 3481;
+//    RF_cmdPropRadioDivSetup.txPower = 0x3E92;
+    RF_cmdPropRadioDivSetup.txPower = 0xa73f;   //GW power
+//
+   RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xc0000;   //GW speed 1200
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 0x578; // GW 18-dec-2024
+    RF_cmdPropRadioDivSetup.pRegOverride = our_overrides;
+#endif
     /* Request access to the radio */
     rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
+
+
+//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
+//    RF_cmdPropRadioDivSetup.intFreq = 0x0d99;
+    RF_cmdPropRadioDivSetup.config.biasMode = 0x1;
+//    RF_cmdPropRadioDivSetup.loDivider = 0x04; */
+//    RF_cmdFs.frequency = 0x4ec;
+    RF_cmdFs.frequency = freq;
+
 
     /* Set the frequency */
     RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
@@ -185,59 +421,96 @@ void *mainThread(void *arg0)
                                                            RF_PriorityNormal, &ReceivedOnRFcallback,
                                                            RF_EventRxEntryDone);
 
+    size_t bytesToRead = MAX_LENGTH-2; //GW 241020
     UART2_read(uart, &input, bytesToRead, NULL);
 
     while(1)
     {
+        loopctr++;
+//        idle = 1; // signal that we have some time left
         /* Check if anything has been received via RF*/
-        if(packetRxCb)
+        if(packetRxCb)      // if !=0 we have a rf packet
         {
-            memcpy(input, packet, (packetLength));
-            size_t bytesWritten = 0;
-            while (bytesWritten == 0)
-            {
-                status = UART2_write(uart, &input, packetLength, &bytesWritten);
-                if (status != UART2_STATUS_SUCCESS)
-                {
-                    /* UART2_write() failed */
-                    while (1);
-                }
-            }
-
-            /* Reset RF RX callback flag */
+            memcpy(input, packet, (packetLength)); //copy to input, and get rssi
+            rssi =  packet[packetLength];
+//            size_t bytesWritten = 0;
             packetRxCb = NO_PACKET;
+            //          go select who should process packet
+            whatpacket(input, (packetLength));
+//            queue_uart(input,packetLength); // queue it instead 241024
+/*            if(EthEna != 1) {
+              while (bytesWritten == 0)     // here dequeue and print 241024
+                {
+                  status = UART2_write(uart, &input, packetLength, &bytesWritten);
+                  if (status != UART2_STATUS_SUCCESS)
+                  {
+//                     UART2_write() failed
+                    while (1);
+                  }
+               }
+            } else {
+                whatpacket(input, (packetLength));
+//                if(input[0] & FINFLAG)
+//                    xprint("last\n");
+            } */
+//            whatpacket(input, (packetLength));
+            /* Reset RF RX callback flag */
         }
 
-        /* Check if anything has been received via UART*/
-        if (bytesReadCount != 0)
-        {
-            /*The packet length is set to the number of
-             * bytes read by UART2_read() */
-            RF_cmdPropTx.pktLen = bytesReadCount;
-            int i;
-            for (i=0; i<bytesReadCount; i++)
-            {
-                uint8_t* buffer8 = (uint8_t*) input;
-                packet[i] = buffer8[i];
-            }
-
-            /*Cancel the ongoing command*/
-            RF_cancelCmd(rfHandle, rfPostHandle, 1);
-
-            /*Send packet*/
-            RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
-
-            /* Toggle green led to indicate TX */
-            GPIO_toggle(CONFIG_GPIO_GLED);
-
-            /* Resume RF RX */
+#ifdef  HAM23CMRADIO
+     if(parchange != 0) {
+          RX_OFF();       // RX_OFF executes RF_cancelCmd(rfHandle, rfPostHandle, 1);
+            RF_close(rfHandle);
+            rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
             rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
                                                                  RF_PriorityNormal, &ReceivedOnRFcallback,
                                                                  RF_EventRxEntryDone);
+            RX_ON(); // RX_ON executes    rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,RF_PriorityNormal, &ReceivedOnRFcallback,RF_EventRxEntryDone);
+            RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
+            parchange =0;   //only execute once
+        }
+        if (freq != freqold) {          // set new frequency
+            freqold = freq;
+            RF_cmdFs.frequency = freq;
+            RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
+        }
+#endif
+
+#ifdef ETHERNET
+//        if (EthEna == 1) {
+              check_ethernet();
+//        }
+#endif
+        /* Check if anything has been received via UART*/
+        if (bytesReadCount != 0)
+        {
+            // we are processing uart input
+            /*The packet length is set to the number of
+             * bytes read by UART2_read() */
+
+            /*Cancel the ongoing command*/
+//            RF_cancelCmd(rfHandle, rfPostHandle, 1);
+//          status = UART2_read(uart, &input, bytesToRead, NULL);
+
+            /*Send packet*/
+//            RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
+//            SendPacket(input,bytesReadCount); //241024
+            /* Toggle green led to indicate TX */
+
+//            GPIO_toggle(CONFIG_GPIO_GLED);
+
+            /* Resume RF RX */
+/*            rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
+                                                                 RF_PriorityNormal, &ReceivedOnRFcallback,
+                                                                 RF_EventRxEntryDone); */
+//            queue_uart(&input,bytesReadCount); // 241024
             bytesReadCount = 0;
 
             /* Resume UART read */
-            status = UART2_read(uart, &input, bytesToRead, NULL);
+//            status = UART2_read(uart, &input, bytesToRead, NULL);
+        } else {
+//            if(cmdbytes) checkcommand();
+           checkcommand();
         }
     }
 }
@@ -249,7 +522,7 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
     if (e & RF_EventRxEntryDone)
     {
         GPIO_toggle(CONFIG_GPIO_RLED);
-
+//        GPIO_write(sigpin,1);
         /* Get current unhandled data entry */
         currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
 
@@ -261,11 +534,11 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 
         /* Copy the payload + the status byte to the packet variable */
         memcpy(packet, packetDataPointer, (packetLength + 1));
-
         /* Move read entry pointer to next entry */
         RFQueue_nextEntry();
 
         packetRxCb = PACKET_RECEIVED;
+        Recd++;
     }
 }
 
@@ -277,6 +550,26 @@ void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void
         /* RX error occured in UART2_read() */
         while (1) {}
     }
-
-    bytesReadCount = count;
+      bytesReadCount = count; //241025
+      queue_uart(buffer,count); // 241024
+      status = UART2_read(uart, &input, 253, NULL); //241026
 }
+
+void TimerCallbackFunction(void) {
+    Runtime++;
+    if(Timer0) Timer0--;    // decrement timer if counting
+    if(Timer1) Timer1--;
+    if(Timer_per) Timer_per--;
+    if(Timer_def) Timer_def--; 
+    if(Timer_tdm) Timer_tdm--;
+}
+/* unsigned int eints = 0;
+uint8_t pktbuf1[1514];
+void w5500int(uint_least8_t index) {
+    int reclen;
+    reclen = w5500readFrame(pktbuf1, sizeof(pktbuf1));
+    queue_eth(pktbuf1,reclen, eints & 0xff);
+    setSIR(1);  // only socket 0
+    setSn_IR(4);
+    eints++;
+} */
