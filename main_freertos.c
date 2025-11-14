@@ -50,6 +50,7 @@
 
 /* Example/Board Header files */
 #include "ti_drivers_config.h"
+#include "heard.h"
 
 #if defined(CONFIG_LP_CC2674R10_FPGA)
 #include <ti/drivers/power/PowerCC26XX.h>
@@ -57,18 +58,24 @@
 #include DeviceFamily_constructPath(driverlib/ioc.h)
 #endif
 
+extern void *Cmd(void);
+extern void *Eth(void);
+extern void *Net(void);
+
 extern void *mainThread(void *arg0);
 
 /* Stack size in bytes */
 #define THREADSTACKSIZE    2096
+//#define THREADSTACKSIZE    3000
 
 /*
  *  ======== main ========
  */
 int main(void)
 {
-    pthread_t           thread;
+    pthread_t           thread,thread1,thread2,threadNET;
     pthread_attr_t      attrs;
+//    TaskHandle_t        Radio_h,Eth_h,Cmd_h;
     struct sched_param  priParam;
     int                 retc;
     int                 detachState;
@@ -84,7 +91,7 @@ int main(void)
 
     /* Set priority and stack size attributes */
     pthread_attr_init(&attrs);
-    priParam.sched_priority = 1;
+    priParam.sched_priority = 7;
 
     detachState = PTHREAD_CREATE_DETACHED;
     retc = pthread_attr_setdetachstate(&attrs, detachState);
@@ -102,6 +109,25 @@ int main(void)
     }
 
     retc = pthread_create(&thread, &attrs, mainThread, NULL);
+    if (retc != 0) {
+        /* pthread_create() failed */
+        while (1);
+    }
+    attrs.priority = 3;
+    retc = pthread_create(&thread1, &attrs, Cmd, NULL);
+    if (retc != 0) {
+        /* pthread_create() failed */
+        while (1);
+    }
+    attrs.priority = 4;
+    retc = pthread_create(&thread2, &attrs, Eth, NULL);
+//    xTaskCreate(Eth(), "Eth", 2100, (void *) 1,4,&Eth_h);
+    if (retc != 0) {
+        /* pthread_create() failed */
+        while (1);
+    }
+    attrs.priority = 6;
+    retc = pthread_create(&threadNET, &attrs, Net, NULL);
     if (retc != 0) {
         /* pthread_create() failed */
         while (1);

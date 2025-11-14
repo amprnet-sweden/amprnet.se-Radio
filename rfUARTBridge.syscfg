@@ -1,124 +1,137 @@
-/*
- * Copyright (c) 2018, Texas Instruments Incorporated
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-// @cliArgs --board /ti/boards/LP_EM_CC1314R10 --rtos freertos
-
-/*
- *  rfATCommands.syscfg
+/**
+ * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
+ * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
+ * @cliArgs --board "/ti/boards/LP_EM_CC1314R10" --device "CC1314R10RSK" --part "Default" --package "RSK" --rtos "freertos" --product "simplelink_cc13xx_cc26xx_sdk@8.30.01.01"
+ * @v2CliArgs --device "CC1314R10" --package "VQFN (RSK)" --board "/ti/boards/LP_EM_CC1314R10" --rtos "freertos" --product "simplelink_cc13xx_cc26xx_sdk@8.30.01.01"
+ * @versions {"tool":"1.21.1+3772"}
  */
 
+/**
+ * Import the modules used in this configuration.
+ */
+const FreeRTOS = scripting.addModule("/freertos/FreeRTOS");
+const CCFG     = scripting.addModule("/ti/devices/CCFG");
+const custom   = scripting.addModule("/ti/devices/radioconfig/custom");
+const rfdesign = scripting.addModule("/ti/devices/radioconfig/rfdesign");
+const GPIO     = scripting.addModule("/ti/drivers/GPIO");
+const GPIO1    = GPIO.addInstance();
+const GPIO2    = GPIO.addInstance();
+const GPIO3    = GPIO.addInstance();
+const GPIO4    = GPIO.addInstance();
+const GPIO5    = GPIO.addInstance();
+const GPIO6    = GPIO.addInstance();
+const GPIO7    = GPIO.addInstance();
+const GPIO8    = GPIO.addInstance();
+const GPIO9    = GPIO.addInstance();
+const NVS      = scripting.addModule("/ti/drivers/NVS", {}, false);
+const NVS1     = NVS.addInstance();
+const RF       = scripting.addModule("/ti/drivers/RF");
+const SPI      = scripting.addModule("/ti/drivers/SPI", {}, false);
+const SPI1     = SPI.addInstance();
+const Timer    = scripting.addModule("/ti/drivers/Timer", {}, false);
+const Timer1   = Timer.addInstance();
+const UART2    = scripting.addModule("/ti/drivers/UART2");
+const UART21   = UART2.addInstance();
+const UART22   = UART2.addInstance();
+const Settings = scripting.addModule("/ti/posix/freertos/Settings");
 
-/* ======== RF ======== */
-var RF = scripting.addModule("/ti/drivers/RF");
+/**
+ * Write custom configuration values to the imported modules.
+ */
+FreeRTOS.rovQueueEnabled = true;
 
-/* if an antenna component exists, assign it to the rf instance */
-if (system.deviceData.board && system.deviceData.board.components.RF) {
-    RF.$hardware = system.deviceData.board.components.RF;
-}
+CCFG.xoscCapArray            = true;
+CCFG.xoscCapArrayDelta       = 0xD5;
+CCFG.enableBootloader        = true;
+CCFG.dioBootloaderBackdoor   = 15;
+CCFG.levelBootloaderBackdoor = "Active low";
+CCFG.ccfgTemplate.$name      = "ti_devices_CCFG_CCFGCC26XXTemplate0";
 
-/* ======== LED Red ======== */
-var GPIO = scripting.addModule("/ti/drivers/GPIO");  // Add a GPIO module for use by LEDs
-var LED_R = GPIO.addInstance();                      // Add an a GPIO module instance for LED_R
+custom.prop8                                              = ["custom868"];
+custom.radioConfigcustom868.phyType868                    = "2gfsk50kbps";
+custom.radioConfigcustom868.carrierFrequency              = 868.0000;
+custom.radioConfigcustom868.$name                         = "RF_Custom_Setting";
+custom.radioConfigcustom868.whitening                     = "PN9 Whitening";
+custom.radioConfigcustom868.symbolRate                    = 1000.000;
+custom.radioConfigcustom868.deviation                     = 350.0;
+custom.radioConfigcustom868.rxFilterBw                    = "2185.1";
+custom.radioConfigcustom868.txPower                       = "12";
+custom.radioConfigcustom868.codeExportConfig.$name        = "ti_devices_radioconfig_code_export_param0";
+custom.radioConfigcustom868.codeExportConfig.useMulti     = true;
+custom.radioConfigcustom868.codeExportConfig.symGenMethod = "Legacy";
 
-/* if a red LED component exists, assign it to the LED_R instance */
-if (system.deviceData.board && system.deviceData.board.components.LED_RED) {
-    LED_R.$hardware = system.deviceData.board.components.LED_RED;
-}
-else
-{
-    LED_R.mode = "Output";  // Set the LED pin to output
-}
+rfdesign.rfDesign = "LP_EM_CC1314R10";
 
-LED_R.$name = "CONFIG_GPIO_RLED";                     // Descriptive name for the LED_R GPIO
+GPIO1.$name           = "LNA_HIGH";
+GPIO1.mode            = "Output";
+GPIO1.gpioPin.$assign = "boosterpack.28";
 
-/* ======== LED Green ======== */
-var GPIO = scripting.addModule("/ti/drivers/GPIO");  // Add a GPIO module for use by LEDs
-var LED_G = GPIO.addInstance();                      // Add an a GPIO module instance for LED_G
+GPIO2.$hardware = system.deviceData.board.components.LED_GREEN;
+GPIO2.$name     = "CONFIG_GPIO_GLED";
 
-/* if a green LED component exists, assign it to the LED_G instance */
-if (system.deviceData.board && system.deviceData.board.components.LED_GREEN) {
-    LED_G.$hardware = system.deviceData.board.components.LED_GREEN;
-}
-else
-{
-    LED_G.mode = "Output";   // Set the LED pin to output
-}
+GPIO3.$name           = "sigpin2";
+GPIO3.mode            = "Output";
+GPIO3.gpioPin.$assign = "boosterpack.37";
 
-LED_G.$name = "CONFIG_GPIO_GLED";                     // Descriptive name for the LED_G GPIO
+GPIO4.$name           = "PA_HIGH";
+GPIO4.mode            = "Output";
+GPIO4.gpioPin.$assign = "boosterpack.27";
 
-/* ======== USB UART ======== */
-var UART2 = scripting.addModule("/ti/drivers/UART2");  // Add a UART2 module
-var UART_USB = UART2.addInstance();                      // Add a UART module instance
+GPIO5.$name           = "TX_HIGH";
+GPIO5.mode            = "Output";
+GPIO5.gpioPin.$assign = "boosterpack.26";
 
-/* if a XDS110UART component exists, assign it to the UART_USB instance */
-if (system.deviceData.board && system.deviceData.board.components.XDS110UART) {
-    UART_USB.$hardware = system.deviceData.board.components.XDS110UART;
-}
+GPIO6.$name           = "CONFIG_GPIO_RLED";
+GPIO6.mode            = "Output";
+GPIO6.gpioPin.$assign = "DIO_6";
+scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad LED Red on the CC1314R10 LaunchPad\\. Consider selecting it in \'use hardware\' above\\. @@@.+?@@@", GPIO6, "gpioPin");
 
-UART_USB.txPinInstance.$name = "CONFIG_PIN_UART_TX";  // Descriptive name for UART TX PIN
-UART_USB.rxPinInstance.$name = "CONFIG_PIN_UART_RX";  // Descriptive name for UART RX PIN
-UART_USB.$name = "CONFIG_UART2_0";
+GPIO7.mode               = "Output";
+GPIO7.$name              = "SPICS";
+GPIO7.initialOutputState = "High";
+GPIO7.gpioPin.$assign    = "boosterpack.24";
 
-/* ======== Radio Configuration ======== */
-const commonRf = system.getScript("/ti/prop_rf/prop_rf_common.js");
-const boardName = commonRf.getDeviceOrLaunchPadName(true);
-const phyFilePath = "/ti/prop_rf/rf_config/" + boardName + "_rf_defaults.js";
+GPIO8.$name           = "sigpin";
+GPIO8.mode            = "Output";
+GPIO8.gpioPin.$assign = "boosterpack.38";
 
-// Get the supported proprietary phys for this board as defined by Prop RF
-const supportedPropPhys = system.getScript(phyFilePath).defaultPropPhyList;
+GPIO9.$name            = "EINT";
+GPIO9.pull             = "Pull Up";
+GPIO9.interruptTrigger = "Falling Edge";
+GPIO9.gpioPin.$assign  = "boosterpack.25";
 
-// Get the supported proprietary phy for this board as defined by Prop RF
-const defaultPhy = system.getScript(phyFilePath).defaultPropPhyList[0];
+NVS1.$name               = "CONFIG_INTERNAL";
+NVS1.internalFlash.$name = "ti_drivers_nvs_NVSCC26XX0";
 
-// Add an instance of the "Custom" RF Stack
-const customStack = scripting.addModule("/ti/devices/radioconfig/custom");
+SPI1.$name               = "CONFIG_SPI_0";
+SPI1.spi.sclkPin.$assign = "boosterpack.2";
+SPI1.spi.pociPin.$assign = "boosterpack.6";
+SPI1.spi.picoPin.$assign = "boosterpack.23";
 
-// Add the default phy instance
-const phyInst = commonRf.addPropPhy(customStack, defaultPhy, true);
-phyInst.$name = "RF_Custom_Setting";
+Timer1.$name               = "CONFIG_TIMER_0";
+Timer1.timerType           = "32 Bits";
+Timer1.timerInstance.$name = "CONFIG_GPTIMER_0";
 
-/* ======== RF Design ======== */
-var rfDesign = scripting.addModule("ti/devices/radioconfig/rfdesign");
-const rfDesignSettings = system.getScript("/ti/common/lprf_rf_design_settings.js").rfDesignSettings;
-for(var setting in rfDesignSettings)
-{
-    rfDesign[setting] = rfDesignSettings[setting];
-}
+UART21.$name               = "CONFIG_UART2_0";
+UART21.$hardware           = system.deviceData.board.components.XDS110UART;
+UART21.txPinInstance.$name = "CONFIG_PIN_UART_TX";
+UART21.rxPinInstance.$name = "CONFIG_PIN_UART_RX";
 
-/* ======== Device ======== */
-var device = scripting.addModule("ti/devices/CCFG");
-const ccfgSettings = system.getScript("/ti/common/lprf_ccfg_settings.js").ccfgSettings;
-for(var setting in ccfgSettings)
-{
-    device[setting] = ccfgSettings[setting];
-}
+UART22.$name = "CONFIG_UART2_1";
 
-const freertos_release_syscfg_js = system.getScript("freertos/builds/freertos_release.syscfg.js");
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+GPIO2.gpioPin.$suggestSolution              = "DIO_7";
+SPI1.spi.$suggestSolution                   = "SPI0";
+SPI1.spi.dmaRxChannel.$suggestSolution      = "DMA_CH3";
+SPI1.spi.dmaTxChannel.$suggestSolution      = "DMA_CH4";
+Timer1.timerInstance.timer.$suggestSolution = "GPTM0";
+UART21.uart.$suggestSolution                = "UART1";
+UART21.uart.txPin.$suggestSolution          = "boosterpack.4";
+UART21.uart.rxPin.$suggestSolution          = "boosterpack.3";
+UART22.uart.$suggestSolution                = "UART0";
+UART22.uart.txPin.$suggestSolution          = "boosterpack.19";
+UART22.uart.rxPin.$suggestSolution          = "boosterpack.39";
