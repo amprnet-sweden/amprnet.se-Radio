@@ -30,8 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-STACKSIZE = 1024;
-HEAPSIZE = 16384; /* Size of heap buffer used by HeapMem */
+STACKSIZE = 0x800;
 
 MEMORY
 {
@@ -64,14 +63,14 @@ REGION_ALIAS("REGION_ARM_EXTAB", FLASH);
 
 SECTIONS {
 
-    PROVIDE (_resetVecs_base_address =
-        DEFINED(_resetVecs_base_address) ? _resetVecs_base_address : 0x0);
+    PROVIDE (_intvecs_base_address =
+        DEFINED(_intvecs_base_address) ? _intvecs_base_address : 0x0);
 
-    .resetVecs (_resetVecs_base_address) : AT (_resetVecs_base_address) {
+    .resetVecs (_intvecs_base_address) : AT (_intvecs_base_address) {
         KEEP (*(.resetVecs))
     } > REGION_TEXT
 
-    .ramVecs (NOLOAD) : {
+    .ramVecs (NOLOAD) : ALIGN(256) {
         KEEP (*(.ramVecs)) /* Section from interrupt.c (driverlib) */
     } > REGION_DATA
 
@@ -220,6 +219,7 @@ SECTIONS {
         *(.ARM.extab* .gnu.linkonce.armextab.*)
     } > REGION_ARM_EXTAB AT> REGION_ARM_EXTAB
 
+
     .nvs (NOLOAD) : ALIGN(0x2000) {
         *(.nvs)
     } > REGION_TEXT
@@ -243,7 +243,6 @@ SECTIONS {
         end = __heap_start__;
         _end = end;
         __end = end;
-        . = . + HEAPSIZE;
         KEEP(*(.heap))
         __heap_end__ = .;
         __HeapLimit = __heap_end__;

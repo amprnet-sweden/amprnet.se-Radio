@@ -29,7 +29,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-// @cliArgs --board /ti/boards/LP_EM_CC1314R10 --rtos nortos
+// @cliArgs --board /ti/boards/LP_EM_CC1314R10 --rtos freertos
 
 /*
  *  rfATCommands.syscfg
@@ -120,3 +120,5 @@ for(var setting in ccfgSettings)
 {
     device[setting] = ccfgSettings[setting];
 }
+
+const freertos_release_syscfg_js = system.getScript("freertos/builds/freertos_release.syscfg.js");

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>rfUARTBridge_LP_EM_CC1314R10_nortos_gcc</name>
+	<name>rfUARTBridge_LP_EM_CC1314R10_freertos_gcc</name>
 	<comment></comment>
 	<projects>
 	</projects>
