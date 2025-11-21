@@ -10,6 +10,14 @@ mailny this contains the command interpreter, and various functions called by th
 #include <ti/drivers/SPI.h>
 #include <ti/drivers/Timer.h>
 
+
+#define configUSE_TRACE_FACILITY 1
+#define configUSE_STATS_FORMATTING_FUNCTIONS 1
+/* RTOS header files */
+#include <FreeRTOS.h>
+#include <task.h>
+
+/* */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -609,7 +617,19 @@ void parse_cmd(char *cline, int cnt) {
           xprint(my_call);
           xprint("\n");
       }
-
+    } else if (strcmp(cline, ("tasks")) == 0) {
+        char outbuf[200];
+        char *op = outbuf;
+//        TaskStatus_t cmdtask;
+//        TaskStatus_t myDetails;
+//        void vTaskList( op );
+/*        UBaseType_t Kalle;
+        Kalle = uxTaskGetNumberOfTasks();
+        xprint_int(Kalle);
+        xprint(" tasks running \n"); */
+        vTaskList( op);
+        xprint("Name         State    Priority Stack   num\n");
+        xprint(outbuf);
     } else if (strcmp(cline, ("ipadd")) == 0) {
         char *str = "192.168.0.1"; //, *str2;
         unsigned char value[4] = {0};
