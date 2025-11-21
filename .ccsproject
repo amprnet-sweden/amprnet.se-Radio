@@ -16,4 +16,5 @@
 	<templateProperties value="id=rfUARTBridge_LP_EM_CC1314R10_freertos_gcc.projectspec.rfUARTBridge_LP_EM_CC1314R10_freertos_gcc,isHybrid=true"/>
 	<origin value="/home/emma/ti/simplelink_cc13xx_cc26xx_sdk_8_31_00_11/examples/rtos/LP_EM_CC1314R10/prop_rf/rfUARTBridge/freertos/gcc/rfUARTBridge_LP_EM_CC1314R10_freertos_gcc.projectspec"/>
 	<filesToOpen value=""/>
+	<isTargetManual value="false"/>
 </projectOptions>
