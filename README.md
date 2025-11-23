@@ -1,107 +1,67 @@
-# UARTbridge
+# amprnet-radio.se
 
----
+**** NOTE THAT YOU HAVE TO HAVE A VALID HAM RADIO LICENSE TO USE THIS RADIO ****
 
-Project Setup using the System Configuration Tool (SysConfig)
--------------------------
-The purpose of SysConfig is to provide an easy to use interface for configuring
-drivers, RF stacks, and more. The .syscfg file provided with each example
-project has been configured and tested for that project. Changes to the .syscfg
-file may alter the behavior of the example away from default. Some parameters
-configured in SysConfig may require the use of specific APIs or additional
-modifications in the application source code. More information can be found in
-SysConfig by hovering over a configurable and clicking the question mark (?)
-next to it's name.
+This is an attempt to create a 23 cm packet radio platform using a Texas Instrument CC1312 or CC1314R10 radio processor. According to specifications this chip can
+operate in the 1076 - 1315 Mhz band, however there is very little support from TI for this frequency range. 
 
-Example Summary
----------------
-The Uart Bridge illustrates how to do simple packet transmitting and receiving from one UART to
-another over the RF driver. This example is meant to be used with two RF devices. For every packet received, 
-the packet is printed on the UART (terminal). The red led changes state when a packet is received, 
-while the green led changes state when a packet is being transmitted. 
-Packets are sent when the UART data is longer than the chosen maximum packet length.
+After successfully programming the radio to this band some preliminary code has been written that implements a serial to RF bridge, where two radios can be set 
+up to work as a virtual serial wire, and ethernet to ethernet bridging using a w5500 ethernet module.
 
-Peripherals Exercised
----------------------
+The current implementation brings out two serial channels where one is intended for "data" transport and one is intended for a "command terminal" where
+the radio configuration can be changed. There is also a SPI channel to connect an SPI to Ethernet module. The radio is powered by 3.3 V, or 5 V via 
+a regulator.
 
+There is also a I2C port where a 2x16 or 4x20 character LCD can be connected, useful when doing mobile survey.
 
-Resources & Jumper Settings
----------------------------
-> If you're using an IDE (such as CCS or IAR), please refer to Board.html in your project
-directory for resources used and board-specific jumper settings. Otherwise, you can find
-Board.html in the directory &lt;SDK_INSTALL_DIR&gt;/source/ti/boards/&lt;BOARD&gt;.
+A "breakout" PCB has been made, that brings out these interfaces to wire wrap pins similar to arduinos and the like. There is a 3.3V regulator on board.
 
-Board Specific Settings
------------------------
-1. The default frequency is:
-    - 433.92 MHz for the CC1352P-4-LAUNCHXL and LP_CC1352P7_4
-    - 2440 MHz on the CC26X2R1-LAUNCHXL and 2.4GHz-only devices
-    - 868.0 MHz for other launchpads
+Power output is +12 dBm, and the radio speed is currently 1 Mbps.
 
-Note: Frequency can be changed in SysConfig
-2. On the CC1352P1 the high PA is enabled (high output power) for all
-Sub-1 GHz modes by default.
-3. On the CC1352P-2 and CC1352P-4 the high PA operation for Sub-1 GHz modes is not supported
+Up until now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
+NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK or other new usage of the 23 cm HAM radio band.
 
-Example Usage
--------------
-Run the application on two boards. Open the corresponding terminals to the connected devices. When both devices are running the application, one should see that 
-when typing into one terminal, the other prints the message and opposite. You can change the terminal you type into anytime, 
-then the devices would switch their role (TX/RX). Please make sure that the terminal supports all keyboard inputs as keyboards can conatin various 
-characters.
+Version 0.93b is now current at 2025/04/15 and allows:
 
-SmartRF studio is also an alternative, with manual alternating between TX and RX. Running this program on one device will make the device able to receive/transmit packages. 
+1  Serial to serial over a 23 cm channel
 
-__How to set up SmartRF studio for TX__
+2  Ethernet to ethernet bridging
 
-1. Open SmartRF studio and choose the device you want to use by double clicking it in the menu of connected devices (the other device should run the code)
+# Why build an amprnet radio?
 
-2. Choose Packet TX in the upper right corner.
+Ham radio operators own most of the 44-net, i.e. all IPV4 addresses that begin with 44...... There are networks built within the AmprNet community in several countries across the world.
+Most of these links are created with 2.4 Ghz Wifi radio, that incidently map onto he 13 cm HAM band. However, this equipment is not suited for amateurs to tamper with, in some countries
+this is illegal.
 
-3. Ensure that the frequency, symbol rate, RX Filter BW, TX Power, deviation and whitening corresponds to the settings in the sysconfig file. 
+However, HAM's have a nice frequency band on 1240 - 1300 Mhz, that promises slightly better propagation and that is very sparsly used.
 
-4. Choose your expected packet count and your message format.
+Lower band are more or less "channelised" due to the proliferation of surplus land mobile equipment, thus preventing the creation of larger bandwidth channels. With some new
+integrated circuits coming up, it is now possible to populate this band at low cost.
 
-5. Run the code on the other device and click the green play button in the upper right corner. The message should be shown in the terminal. 
+So in summary; Use the 23 cm band or loose it to some other service.
+	Use the IPV4 adresses that we have.
+	Do something technical and move the ham community forward a bit.
+	Have fun and target a younger more Internet focused part of the population to use HAM radio.
 
-__How to set up SmartRF studio for RX__
+# TO COMPILE  YOU NEED THIS
 
-1. Open SmartRF studio and choose the device you want to use by double clicking it in the menu of connected devices (the other device should run the code)
+CCSTUDIO V 12.8.1		(I could not get 20.X to work properly)
 
-2. Choose Packet TX in the upper right corner.
+SIMPLELINK-LOWPOWER-F2-SDK 8.30.01.01
 
-3. Ensure that the frequency, symbol rate, RX Filter BW, TX Power, deviation and whitening corresponds to the settings in the sysconfig file.
+If you want to be able to program/debug you also need a USB-Jtag device, I have used the LP-XDS110ET from TI, it is supported by CCS and is low cost.
 
-4. Choose expected packet count and a format you want to view the incoming packets.
+Easiest way to start is to install the CCS, the processor SDK, and create an example by importing the GCC + NORTOS rfUARTbridge example from trhe SDK.
 
-5. Press the green play button in the upper right corner and send a packet from the terminal by writing a letter/word. (you need to ensure that SmartRF studio runs in receive mode while you send the packet)
+Compile and test that you get a valid image.
+
+Replace all files from this git onto that directory.
+
+Rebuild, and you should have the V 0.93b firmware. 
+
+NOTE!! this code is based on one "big loop", and we really need a RTOS, since that prevents blocking I/O to lock the CPU up. The reason for doing this first version in
+this ugly way, is simply "KISS", "Keep it simple stupid". This causes a *real* problem with Ethernet performance, so next version will be RTOS based. The main loop executes
+in 17 uS when nothing happens, so we get decent latency, but it is unknown what percentage we "waste" in various blocking I/O's. Most input is based on callbacks.
 
 
-Application Design Details
---------------------------
-This example consists of one thread which polls variables to check if callbacks for UART RX and RF RX have been executed.
-
-When mainThread() is executed, it follows the procedure below.
-
-1. Initialization of RF params, data queue to receive RF data, GPIO, and RF commands (CMD_PROP_TX and CMD_PROP_RX)
-
-2. Initiailize and get access to UART2 with callback read mode and partial read return mode
-
-3. Gets access to the radio
-
-4. Set the frequency using CMD_FS command
-
-5. Post CMD_PROP_RX command to start receiving RF data and execute UART2_read() to start recieving UART data
-
-6. Check RF RX callback flag, packetRxCb. If it is set, then use UART to write/transmit the data recieved via RF 
-
-7. Check UART RX callback flag, bytesReadCount. If it is set, then:
-    - Copy UART data to RF TX packet
-    - Cancel ongoing CMD_PROP_RX command
-    - Transmit the packet over RF and toggle CONFIG_GPIO_GLED to indicate RF TX
-    - Reset bytesReadCount
-    - Post CMD_PROP_RX to resume RF RX and resume UART2_read()
-
-8. When RF data with CRC OK is received, a callback funtion is called. The callback function sets the beginning and the length of the packet and copies it to the variable, packet. A flag, packetRxCb, is set to indicate RF RX callback has executed. CONFIG_GPIO_RLED is toggled to indicate RF RX.
-
-9. When UART data is recieved, a callback function is called where bytesReadCount is set to the amount of bytes that have been received via UART
+Gullik / SM4FBD

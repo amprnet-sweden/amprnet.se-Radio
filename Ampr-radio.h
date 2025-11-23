@@ -33,6 +33,7 @@
 
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
 extern uint8_t m1,m2,m3,m4,m5,m6;
+extern uint8_t my_Q;
 extern unsigned char myaddr;
 extern unsigned char peeraddr;
 extern unsigned char mode;
@@ -93,4 +94,4 @@ void get_NVS(uint8_t * buf);
 void smeter(signed char rssi);
 char init_ether(void);
 void proc_tdma_packet(uint8_t * buffer, char len);
-void proc_eth(uint8_t * buf,int count);
+void proc_eth(uint8_t * buf,int count,char port);
