@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "Ampr-radio.h"
+#include "w5500.h"
 
 
 uint8_t my_ip[] = {44,5,5,20};
@@ -42,17 +43,18 @@ uint16_t checksum(uint16_t * addr, int len) {
    }
 
 
-void arp_reply(uint8_t * buf, int count) {
+void arp_reply(uint8_t * buf, int count,char port) {
 //    memcpy(&buf[32],my_hwaddr,6);  //set my hw addr
     buf[21] = 2;                    // set reply
     memcpy(&buf[0],&buf[6],6); // copy src to dest
     memcpy(&buf[6], my_hwaddr,6); // use my src address
-    memcpy(&buf[32],&buf[22],10); // fill in hw addr and ip addr
+    memcpy(&buf[32],&buf[22],10); // fill in hw adder and ip addr
     memcpy(&buf[22],my_hwaddr,6);   // and fill my mac
     memcpy(&buf[28], my_ip,4);     // and fill in my address
-    if(EthEna) {
+    if (port == 1) {
+      if(EthEna) {
         w5500sendFrame(buf,count);
-    }
+      }
 /*          for(int i=0;i<count;i++) {
                  xprint_xchar(buf[i]);
                  if(i%64 == 63) {
@@ -62,9 +64,17 @@ void arp_reply(uint8_t * buf, int count) {
                  }
             }
             xprint("\n"); */
+    }
+    if(port == 2) {
+//      xprint("reply to arp via 2 Q :");
+      my_Q++;
+//      xprint_char(my_Q);
+//      xprint("\n");
+      queue_eth(buf,count,my_Q);
+    }
 }
-void icmp_reply(uint8_t * buf, int count) {
-    uint16_t chk;
+void icmp_reply(uint8_t * buf, int count,char port) {
+//    uint16_t chk;
     if(buf[34] == 8) {
 //        xprint("ICMP Request\n");
         int chk = checksum((uint16_t * ) &buf[34],buf[17] + (buf[16] >> 8));
@@ -90,43 +100,33 @@ void icmp_reply(uint8_t * buf, int count) {
 //        xprint_xchar(chk & 0xff);
 //        xprint("\n");
           buf[36] += 8;
-        if(EthEna) {
-            w5500sendFrame(buf,count);
-        }
+          if(port == 1) {
+            if(EthEna) {
+              w5500sendFrame(buf,count);
+            }
+          }
+          if(port == 2) {
+//              xprint("icmp to poirt 2\n");
+              my_Q++;
+              queue_eth(buf,count,my_Q);
+          }
     }
 }
-void proc_eth(uint8_t * buffer, int count) {
+void proc_eth(uint8_t * buffer, int count,char port) {
 //	xprint("Our addr\n");
 	if(memcmp(buffer,bcaddr,6) == 0) {
-//	    xprint("Bcast\n");
-/*	    for(int i=0;i<count;i++) {
-	        xprint_xchar(buffer[i]);
-	        if(i%64 == 63) {
-	          xprint("\n");
-	        } else {
-	          xprint(" ");
-	        }
-	    }
+/*	    xprint("Bcast\n");
 	    xprint("\n"); */
 	    if((buffer[12] == 0x08) && (buffer[13] == 0x06)) {
 //	        xprint("ARP ");
 	        if((buffer[14] == 0) && (buffer[15] == 1)) {
-/*	            xprint("REQ ");
-                xprint_char(buffer[38]);
-                xprint(".");
-                xprint_char(buffer[39]);
-                xprint(".");
-                xprint_char(buffer[40]);
-                xprint(".");
-                xprint_char(buffer[41]);
-                xprint("\n"); */
                 if(memcmp(&buffer[38],my_ip,4) == 0) {
 //                    xprint("ARP ReqOurs\n");
-                    arp_reply(buffer, count);
+                    arp_reply(buffer, count,port);
                 }
 	        }
 	    }
-	    return;
+//	    return;
 	}
 	if(memcmp(buffer,my_hwaddr,6) == 0) {
 //	    xprint("Our addr\n");
@@ -135,7 +135,7 @@ void proc_eth(uint8_t * buffer, int count) {
           switch (buffer[23]) {
           case 1:
 //              xprint("ICMP\n");
-              icmp_reply(buffer, count);
+              icmp_reply(buffer, count, port);
               break;
           default:
               xprint_char(buffer[23]);
@@ -150,7 +150,7 @@ void proc_eth(uint8_t * buffer, int count) {
 	        }
 	     } */
 //	    xprint("\n");
-	    return;
+//	    return;
         }
 	}
 }
