@@ -58,10 +58,6 @@
 #include DeviceFamily_constructPath(driverlib/ioc.h)
 #endif
 
-extern void *Cmd(void);
-extern void *Eth(void);
-extern void *Net(void);
-
 extern void *mainThread(void *arg0);
 
 /* Stack size in bytes */
@@ -113,25 +109,25 @@ int main(void)
         /* pthread_create() failed */
         while (1);
     }
-    attrs.priority = 3;
-    retc = pthread_create(&thread1, &attrs, Cmd, NULL);
-    if (retc != 0) {
-        /* pthread_create() failed */
-        while (1);
-    }
-    attrs.priority = 4;
-    retc = pthread_create(&thread2, &attrs, Eth, NULL);
-//    xTaskCreate(Eth(), "Eth", 2100, (void *) 1,4,&Eth_h);
-    if (retc != 0) {
-        /* pthread_create() failed */
-        while (1);
-    }
-    attrs.priority = 6;
-    retc = pthread_create(&threadNET, &attrs, Net, NULL);
-    if (retc != 0) {
-        /* pthread_create() failed */
-        while (1);
-    }
+//    attrs.priority = 3;
+//    retc = pthread_create(&thread1, &attrs, Cmd, NULL);
+//    if (retc != 0) {
+//        /* pthread_create() failed */
+//        while (1);
+//    }
+//    attrs.priority = 4;
+//    retc = pthread_create(&thread2, &attrs, Eth, NULL);
+////    xTaskCreate(Eth(), "Eth", 2100, (void *) 1,4,&Eth_h);
+//    if (retc != 0) {
+//        /* pthread_create() failed */
+//        while (1);
+//    }
+//    attrs.priority = 6;
+//    retc = pthread_create(&threadNET, &attrs, Net, NULL);
+//    if (retc != 0) {
+//        /* pthread_create() failed */
+//        while (1);
+//    }
 
 #if defined(CONFIG_LP_CC2674R10_FPGA)
     Power_setConstraint(PowerCC26XX_IDLE_PD_DISALLOW);
