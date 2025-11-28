@@ -21,7 +21,7 @@ mailny this contains the command interpreter, and various functions called by th
 #include <ti/devices/cc13x1_cc26x1/driverlib/aon_batmon.h>
 #include "ti_drivers_config.h"
 #include "Ampr-radio.h"
-#include "heard.h"
+// #include "heard.h" // obsolete
 #include "lcd.h"
 #include "tdma.h"
 
@@ -75,7 +75,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="V 0.95";
+char version[] ="V 0.95b";
 //settings
 #if defined HAM23CMRADIO
 unsigned int freq = 1250;
@@ -233,7 +233,7 @@ void parse_cmd(char *cline, int cnt) {
           }
         }
         xprint("\n");
-    } else if (strcmp(cline, ("myaddr")) == 0) {
+/*    } else if (strcmp(cline, ("myaddr")) == 0) {
         xprint("My addr : ");
         xprint_char(myaddr);
         if (argc == 2) {
@@ -266,7 +266,7 @@ void parse_cmd(char *cline, int cnt) {
             }
 //            xprint("\n");
         }
-        xprint("\n");
+        xprint("\n"); */
     } else if (strcmp(cline, ("mode")) == 0) {
         xprint("Mode \n");
          xprint_char(mode);
@@ -409,7 +409,7 @@ void parse_cmd(char *cline, int cnt) {
             xprint_int(dropseg);
             xprint("\n");
         }
-    } else if (strcmp(cline, ("ether")) == 0) {
+/*    } else if (strcmp(cline, ("ether")) == 0) {
         if(argc == 2) {
            if (atoi(argv[1]) == 0) {
                w5500end();
@@ -418,14 +418,6 @@ void parse_cmd(char *cline, int cnt) {
            }
         } else {    // only one arg
         if(EthEna == 0) {
-//            uint8_t tmpmac[] = {2,4,6,8,10,12};
-//            uint8_t buffer[1518];
-/*            for(int i =0 ; i<6; i++) {
-                xprint_xchar(w55mac[i]);
-                xprint(" ");
-            }
-            xprint("\n"); */
-//            bool link = wizphy_getphylink();
             bool stat = w5500begin(my_hwaddr);
 //            if((stat == true) && (link == true)) {
             if(stat == true)  {
@@ -438,7 +430,7 @@ void parse_cmd(char *cline, int cnt) {
 
         } else
             xprint("Already enabled or broken\n");
-        }
+        } */
     } else if (strcmp(cline, ("link")) == 0) {
         char phy = getPHYCFGR();
         xprint("Link status ");
@@ -568,8 +560,8 @@ void parse_cmd(char *cline, int cnt) {
             r = atoi(argv[1]);
         my_R = r;
 //        sendnack(r); */
-    } else if (strcmp(cline, ("heard")) == 0) {
-        showheard();
+//    } else if (strcmp(cline, ("heard")) == 0) { // obsoleted by tdt
+//        showheard();
     } else if (strcmp(cline, ("tdt")) == 0) {
          showtdma();
     } else if (strcmp(cline, ("tdma")) == 0) {
@@ -1052,7 +1044,10 @@ char reseg;
                 } else {
 
 //                    GPIO_write(sigpin2,1);
-//                    GPIO_toggle(sigpin2);
+//                    GPIO_toggle(sigpin2);a
+//                    xprint("S ");
+//                    xprint_char(my_S);
+//                    xprint("\n");
                     my_S = ebnumber[eoidx];
                     send_epkt(&ebufs[eoidx][0], ebcount[eoidx]);
                     count = ebcount[eoidx];
@@ -1150,7 +1145,7 @@ uint8_t radio_buff[chunk+10];
 /* segment and send an ethernet packet */
 void send_epkt(uint8_t *pktbuf, int reclen) {
 
-    if (EthEna == 1 ) {
+//    if (EthEna == 1 ) {
 
       char segnum;
 
@@ -1238,7 +1233,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           } */
           Timer_def = tdelay; //set defer timer
       }
-   } // ethena = 1
+//   } // ethena = 1
 }
 void check_ethernet() {
    int reclen;
@@ -1283,10 +1278,10 @@ void check_ethernet() {
             RX_OFF();
 //            send_tdma_packet();
             dequeue_uart();
-            if (EthEna == 1) {
+//            if (EthEna == 1) {
                 dequeue_eth();
  //               xprint("Q-");
-            }
+//            }
             RX_ON();
             GPIO_write(sigpin2,0);
 
@@ -1328,7 +1323,7 @@ void proc_type7(uint8_t *buffer, int len, char drop) {
 /*    if(dbgptr++ < 100) {
         memcpy(&debbuf[dbgptr][0],buffer,20);
     } */
-    setheard(&buffer[6]);
+//    setheard(&buffer[6]);     // obsoleted by tdt table
     if(buffer[1] == ACK) {  // an ack and something with rnum vs snum
 //      my_R = his_S;     // resynchronize
       if(debug & 64) {
@@ -1541,7 +1536,9 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
                        memcpy(extrabuf,xmitbuffer,ecount); // copy broadcast contents
                        proc_eth(extrabuf, ecount,2);
                     }
-                    w5500sendFrame(xmitbuffer,ecount);
+                    if(EthEna) {
+                      w5500sendFrame(xmitbuffer,ecount);
+                    }
                     test_epkt(xmitbuffer,ecount);
                     ecount = 0;
                 }
@@ -1561,11 +1558,11 @@ void whatpacket(uint8_t * buffer, char length) {
     pktype = buffer[0] & 0xf0;
     switch(pktype) {
     case PETH:
-        if(EthEna) {
+//        if(EthEna) {
 //            GPIO_write(sigpin3,1);
             send_ether(buffer,length);
 //            GPIO_write(sigpin3,0);
-        }
+//        }
         break;
     case PTXT:  // this is a "uart" packet, send it out
         SendText(&buffer[1], length - 1);

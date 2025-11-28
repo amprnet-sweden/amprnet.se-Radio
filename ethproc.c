@@ -66,8 +66,10 @@ void arp_reply(uint8_t * buf, int count,char port) {
             xprint("\n"); */
     }
     if(port == 2) {
-//      xprint("reply to arp via 2");
+//      xprint("reply to arp via 2 Q :");
       my_Q++;
+//      xprint_char(my_Q);
+//      xprint("\n");
       queue_eth(buf,count,my_Q);
     }
 }
