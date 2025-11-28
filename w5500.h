@@ -36,7 +36,7 @@
 #include <ti/drivers/GPIO.h>
 #include "ti_drivers_config.h"
 
-
+#define SPISPEED 12000000
 #define MSGSIZE 1524
 SPI_Handle      spi;
 SPI_Params      spiParams;

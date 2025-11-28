@@ -508,7 +508,7 @@ bool  w5500begin(uint8_t *mac_address)
     SPI_init();  // Initialize the SPI driver
     SPI_Params_init(&spiParams);  // Initialize SPI parameters
     spiParams.dataSize = 8;       // 8-bit data size
-    spiParams.bitRate = 24000000;   // spi baudrate
+    spiParams.bitRate = 12000000;   // spi baudrate
     spi = SPI_open(CONFIG_SPI_0, &spiParams);
     if (spi == NULL) {
         while (1);  // SPI_open() failed
@@ -539,8 +539,6 @@ bool  w5500begin(uint8_t *mac_address)
     }
 
     // Success
-    setSIMR(0x01);	// enable socket 0 interrupt
-    setSn_IR(0x04);	// enable receive packet int
     return true;
 }
 
@@ -559,10 +557,8 @@ void w5500end()
 //uint16_t Wiznet5500::readFrame(uint8_t *buffer, uint16_t bufsize)
 uint16_t w5500readFrame(uint8_t *buffer, uint16_t bufsize)
 {
-//    GPIO_toggle(sigpin2);
     uint16_t len = getSn_RX_RSR();  // get what is received, hang if zero, not good?
 //    GPIO_write(sigpin,0);
-      setSn_IR(Sn_IR_RECV); //clear rx interrupt
 
     if (len > 0)
     {
@@ -571,7 +567,6 @@ uint16_t w5500readFrame(uint8_t *buffer, uint16_t bufsize)
 
         wizchip_recv_data(head, 2);
         setSn_CR(Sn_CR_RECV);   ///< Update RX buffer pointer and receive data
-//        GPIO_toggle(sigpin2);   // from entry to this, 1.262 mS ***
 
         data_len = head[0];
         data_len = (data_len<<8) + head[1];
@@ -581,18 +576,13 @@ uint16_t w5500readFrame(uint8_t *buffer, uint16_t bufsize)
             // Packet is bigger than buffer - drop the packet
             wizchip_recv_ignore(data_len);
             setSn_CR(Sn_CR_RECV); ///< Update RX buffer pointer and receive data
-//            setSn_IR(Sn_IR_RECV); //clear rx interrupt
             return 0;
         }
-//        GPIO_write(sigpin,0);
         wizchip_recv_data(buffer, data_len);
-//        GPIO_toggle(sigpin2);   // last toggle to here 1.494 mS
-        setSn_CR(Sn_CR_RECV); // Update RX buffer pointer and receive data
-//        setSn_IR(Sn_IR_RECV); //clear rx interrupt
-//        GPIO_write(sigpin,1);
+        setSn_CR(Sn_CR_RECV); ///< Update RX buffer pointer and receive data
+
         // Had problems with W5500 MAC address filtering (the Sn_MR_MFEN option)
         // Do it in software instead:
-//        GPIO_toggle(sigpin2);
         return data_len;    //GW
 /*        if ((buffer[0] & 0x01) || memcmp(&buffer[0], _mac_address, 6) == 0)
         {
@@ -602,11 +592,9 @@ uint16_t w5500readFrame(uint8_t *buffer, uint16_t bufsize)
             return 0;
         } */
     }
-    setSn_IR(Sn_IR_RECV); //clear rx interrupt
     return 0;
 }
 
-//uint16_t Wiznet5500::sendFrame(const uint8_t *buf, uint16_t len)
 uint16_t  w5500sendFrame(uint8_t *buf, uint16_t len)
 {
     // Wait for space in the transmit buffer
@@ -641,4 +629,3 @@ uint16_t  w5500sendFrame(uint8_t *buf, uint16_t len)
 
     return len;
 }
-

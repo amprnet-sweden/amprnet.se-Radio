@@ -22,7 +22,9 @@ const GPIO5    = GPIO.addInstance();
 const GPIO6    = GPIO.addInstance();
 const GPIO7    = GPIO.addInstance();
 const GPIO8    = GPIO.addInstance();
-const GPIO9    = GPIO.addInstance();
+const GPIO18   = GPIO.addInstance();
+const I2C      = scripting.addModule("/ti/drivers/I2C", {}, false);
+const I2C1     = I2C.addInstance();
 const NVS      = scripting.addModule("/ti/drivers/NVS", {}, false);
 const NVS1     = NVS.addInstance();
 const RF       = scripting.addModule("/ti/drivers/RF");
@@ -51,27 +53,26 @@ custom.prop8                                              = ["custom868"];
 custom.radioConfigcustom868.phyType868                    = "2gfsk50kbps";
 custom.radioConfigcustom868.carrierFrequency              = 868.0000;
 custom.radioConfigcustom868.$name                         = "RF_Custom_Setting";
-custom.radioConfigcustom868.whitening                     = "PN9 Whitening";
 custom.radioConfigcustom868.symbolRate                    = 1000.000;
 custom.radioConfigcustom868.deviation                     = 350.0;
 custom.radioConfigcustom868.rxFilterBw                    = "2185.1";
 custom.radioConfigcustom868.txPower                       = "12";
+custom.radioConfigcustom868.whitening                     = "PN9 Whitening";
 custom.radioConfigcustom868.codeExportConfig.$name        = "ti_devices_radioconfig_code_export_param0";
 custom.radioConfigcustom868.codeExportConfig.useMulti     = true;
 custom.radioConfigcustom868.codeExportConfig.symGenMethod = "Legacy";
 
 rfdesign.rfDesign = "LP_EM_CC1314R10";
 
-GPIO1.$name           = "LNA_HIGH";
-GPIO1.mode            = "Output";
-GPIO1.gpioPin.$assign = "boosterpack.28";
+GPIO1.$hardware = system.deviceData.board.components.LED_RED;
+GPIO1.$name     = "CONFIG_GPIO_RLED";
 
 GPIO2.$hardware = system.deviceData.board.components.LED_GREEN;
 GPIO2.$name     = "CONFIG_GPIO_GLED";
 
-GPIO3.$name           = "sigpin2";
+GPIO3.$name           = "LNA_HIGH";
 GPIO3.mode            = "Output";
-GPIO3.gpioPin.$assign = "boosterpack.37";
+GPIO3.gpioPin.$assign = "boosterpack.28";
 
 GPIO4.$name           = "PA_HIGH";
 GPIO4.mode            = "Output";
@@ -81,24 +82,25 @@ GPIO5.$name           = "TX_HIGH";
 GPIO5.mode            = "Output";
 GPIO5.gpioPin.$assign = "boosterpack.26";
 
-GPIO6.$name           = "CONFIG_GPIO_RLED";
+GPIO6.$name           = "sigpin";
 GPIO6.mode            = "Output";
-GPIO6.gpioPin.$assign = "DIO_6";
-scripting.suppress("Connected to hardware,@@@.+?@@@ is connected to LaunchPad LED Red on the CC1314R10 LaunchPad\\. Consider selecting it in \'use hardware\' above\\. @@@.+?@@@", GPIO6, "gpioPin");
+GPIO6.gpioPin.$assign = "boosterpack.38";
 
-GPIO7.mode               = "Output";
-GPIO7.$name              = "SPICS";
-GPIO7.initialOutputState = "High";
-GPIO7.gpioPin.$assign    = "boosterpack.24";
+GPIO7.$name           = "sigpin2";
+GPIO7.mode            = "Output";
+GPIO7.gpioPin.$assign = "boosterpack.37";
 
-GPIO8.$name           = "sigpin";
+GPIO8.$name           = "SPICS";
 GPIO8.mode            = "Output";
-GPIO8.gpioPin.$assign = "boosterpack.38";
+GPIO8.gpioPin.$assign = "boosterpack.24";
 
-GPIO9.$name            = "EINT";
-GPIO9.pull             = "Pull Up";
-GPIO9.interruptTrigger = "Falling Edge";
-GPIO9.gpioPin.$assign  = "boosterpack.25";
+GPIO18.$name           = "sigpin3";
+GPIO18.mode            = "Output";
+GPIO18.gpioPin.$assign = "boosterpack.36";
+
+I2C1.$name              = "CONFIG_I2C_0";
+I2C1.i2c.sdaPin.$assign = "boosterpack.32";
+I2C1.i2c.sclPin.$assign = "boosterpack.31";
 
 NVS1.$name               = "CONFIG_INTERNAL";
 NVS1.internalFlash.$name = "ti_drivers_nvs_NVSCC26XX0";
@@ -109,7 +111,6 @@ SPI1.spi.pociPin.$assign = "boosterpack.6";
 SPI1.spi.picoPin.$assign = "boosterpack.23";
 
 Timer1.$name               = "CONFIG_TIMER_0";
-Timer1.timerType           = "32 Bits";
 Timer1.timerInstance.$name = "CONFIG_GPTIMER_0";
 
 UART21.$name               = "CONFIG_UART2_0";
@@ -124,7 +125,9 @@ UART22.$name = "CONFIG_UART2_1";
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
+GPIO1.gpioPin.$suggestSolution              = "DIO_6";
 GPIO2.gpioPin.$suggestSolution              = "DIO_7";
+I2C1.i2c.$suggestSolution                   = "I2C0";
 SPI1.spi.$suggestSolution                   = "SPI0";
 SPI1.spi.dmaRxChannel.$suggestSolution      = "DMA_CH3";
 SPI1.spi.dmaTxChannel.$suggestSolution      = "DMA_CH4";

@@ -30,6 +30,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Copyright to the modifications by Gullik Webjörn, SM4FBD */
+
 /***** Includes *****/
 
 /* Standard C Libraries */
@@ -53,7 +55,6 @@
 Timer_Handle    Timhandle;
 Timer_Params    Timparams;
 
-
 /* Driverlib Header files */
 #include DeviceFamily_constructPath(driverlib/rf_prop_mailbox.h)
 
@@ -70,25 +71,26 @@ Timer_Params    Timparams;
 #include <ti/drivers/Temperature.h>
 #include <ti/devices/cc13x1_cc26x1/driverlib/aon_batmon.h>
 #include <ti/devices/cc13x1_cc26x1/driverlib/ioc.h>
-
 /***** Defines *****/
+#define HAM23CMRADIO 1
 
 /* Packet RX Configuration */
 #define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
-#define MAX_LENGTH             255 /* Max length byte the radio will accept */
-#define NUM_DATA_ENTRIES       8  /* NOTE: Only two data entries supported at the moment */
+//#define MAX_LENGTH             64 /* Max length byte the radio will accept */
+#define MAX_LENGTH             255 /* Max length byte the radio will accept if one size byte */
+#define NUM_DATA_ENTRIES       16  /* NOTE: Only two data entries supported at the moment */
 #define NUM_APPENDED_BYTES     2  /* The Data Entries data field will contain:
                                    * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
                                    * Max 30 payload bytes
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
 #define NO_PACKET              0
 #define PACKET_RECEIVED        1
-#define Nsize 80                // size of command buffer and get parameter buffer
-
+#define Nsize 64                // size of command buffer and get parameter buffer
 
 /*******Global variable declarations*********/
 static RF_Object rfObject;
 static RF_Handle rfHandle;
+
 RF_CmdHandle rfPostHandle;
 
 UART2_Handle uart;
@@ -96,30 +98,34 @@ UART2_Params uartParams;
 
 
 // nvram
+//#define NVS_REGIONS_BASE 0x48000
 NVS_Handle nvsHandle;
+//NVS_Params nvsParams;
 NVS_Attrs regionAttrs;
 
+//char flashBuf0[0x2000] __attribute__ ((at(0x48000)));
+//char flashBuf0[0x2000]  __attribute__ ((retain, noinit, at(0x48000)));
 char flashBuf0[0x2000] __attribute__((section(".nvs"), used));
-
 // Packet counters
 
 unsigned int Recd = 0;
 unsigned int Sent = 0;
 unsigned int Bad = 0;
 
-static char         input[MAX_LENGTH+2];
+static uint8_t         input[MAX_LENGTH+2];
 int32_t             UARTwrite_semStatus;
 int_fast16_t        status = UART2_STATUS_SUCCESS;
 volatile uint8_t packetRxCb;
-volatile size_t bytesReadCount;
-extern int EthEna;
-
+volatile uint16_t bytesReadCount;
+unsigned int Runtime;
+unsigned int Timer_per = 200; //periodeic timer, 20000 * 10 uS = 200 mS
+unsigned int Timer_def = 1;  // defer timer *** problem, should be possible to set .1 mS
+unsigned int Timer_tdm = 1000; // tdma timer
 unsigned int Timer0 = 500;
 unsigned int Timer1 = 0;
-unsigned int Runtime;
-
-
-
+extern int EthEna;
+extern int tdelay;
+int parchange;
 /* Buffer which contains all Data Entries for receiving data.
  * Pragmas are needed to make sure this buffer is 4 byte aligned (requirement from the RF Core) */
 #if defined(__TI_COMPILER_VERSION__)
@@ -150,18 +156,24 @@ static rfc_dataEntryGeneral_t* currentDataEntry;
 static uint8_t packetLength;
 static uint8_t* packetDataPointer;
 
+//static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES - 1]; /* The length byte is stored in a separate variable */
 static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES]; /* The length byte is stored in a separate variable */
 
 /***** Function definitions *****/
 static void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e);
 static void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
 static void TimerCallbackFunction(void);
+//static void w5500int(uint_least8_t index);
 
-
+struct Settings {
+    unsigned int frequency;
+    unsigned char myaddr;
+    unsigned char peeraddr;
+    unsigned char mode;
+};
 char GetRssi() {
     return(RF_getRssi(rfHandle));
 }
-
 
 void RX_OFF(void) {
 //    int status;
@@ -179,7 +191,12 @@ void RF_XMIT(uint8_t *message,char count) {
     int status,col;
     if (count >= 254)
         count = 254;
-//    xprint("E");
+
+/*    for (i=0; i<count; i++)
+    {
+        packet[i] = message[i];
+    } */
+//    delay(1);
     RF_cmdPropTx.pktLen = count;
     RF_cmdPropTx.pPkt = message;
     col = 0;
@@ -200,6 +217,7 @@ void RF_XMIT(uint8_t *message,char count) {
 
 }
 void SendPacket(uint8_t  *message,char count){
+
        /*Cancel the ongoing command*/
        RX_OFF();
        /*Send packet*/
@@ -215,69 +233,6 @@ void SendText(uint8_t *sndbuf,int length) {
            while (1);
        }
 }
-char eseg;
-void check_seg(char * buffer, int len){
-    uint8_t seg,expseg,fin;
-    seg = buffer[0] & 0x7;
-    fin = buffer[0] & 0x8;
-
-    if (seg != eseg) {
-        xprint("SO ");
-        xprint_char(seg);
-        xprint(" E ");
-        xprint_char(eseg);
-        xprint("\n");
-    }
-    if(seg == 7) {
-        eseg = 0;
-    } else {
-      if(fin) {
-        eseg = 7;
-      } else {
-        eseg = seg + 1;
-      }
-    }
-//   xprint("SG ");
-//   xprint_xchar(seg);
-//   if(fin) xprint(" F");
-//   xprint("\n");
-
-}
-
-void whatpacket(uint8_t * buffer, char length) {
-    uint8_t pktype;
-//    Timer1 = 20;        // mark recv in progress, do not interfere
-    pktype = buffer[0] & 0xf0;
-//    GPIO_write(sigpin2,1);
-    switch(pktype) {
-    case PETH:
-        if(EthEna) {
-/* copy the buffer to ethernet task
- * signal the ethernet task
- */
-//            send_log_packet("RR\n");
-//            check_seg(buffer,length);
-            send_ether(buffer,length);
-        }
-        break;
-    case PTXT:  // this is a "uart" packet, send it out
-        SendText(&buffer[1], length - 1);
-        URpkts++;
-        URbytes += length -1;
-        break;
-    case PPTP:
-        xprint("PTP pktype\n");
-        break;
-    case PXXX:
-        xprint("XXX pktype\n");
-        break;
-    default:
-        xprint("Bad pktype : ");
-        xprint_char(pktype);
-        xprint("\n");
-    }
-}
-
 // Overrides for CMD_PROP_RADIO_DIV_SETUP
 uint32_t our_overrides[] =
 {
@@ -312,7 +267,6 @@ uint32_t our_overrides[] =
 
 TaskHandle_t Radioprog;
 int timestamp;
-int snapshot;
 
 void *mainThread(void *arg0)
 {
@@ -323,7 +277,9 @@ void *mainThread(void *arg0)
     memcpy(op,"Radio\0",6);
     Radioprog = xTaskGetCurrentTaskHandle();
 
+//    char idle; // time left indicator
     uint8_t buff[Nsize];
+//    char chk = 0;
     packetRxCb = NO_PACKET;
 
     SPI_init();
@@ -332,8 +288,7 @@ void *mainThread(void *arg0)
 
     Timer_Params_init(&Timparams);
     Timparams.periodUnits = Timer_PERIOD_HZ;
-//    Timparams.period = 1000;
-    Timparams.period = 100000;
+    Timparams.period = 1000;
     Timparams.timerMode  = Timer_CONTINUOUS_CALLBACK;
     Timparams.timerCallback = (void *)TimerCallbackFunction;
     //
@@ -360,6 +315,8 @@ void *mainThread(void *arg0)
         /* Failed to allocate space for all data entries */
         while(1);
     }
+//    GPIO_setConfig(1,GPIO_CFG_IN_PU);
+//    GPIO_setConfig(2,GPIO_CFG_IN_PU);
 
     GPIO_setConfig(CONFIG_GPIO_RLED, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
     GPIO_write(CONFIG_GPIO_RLED, CONFIG_GPIO_LED_OFF);
@@ -367,13 +324,22 @@ void *mainThread(void *arg0)
     GPIO_setConfig(CONFIG_GPIO_GLED, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
     GPIO_write(CONFIG_GPIO_GLED, CONFIG_GPIO_LED_OFF);
 
-// set up LAN PA and TX indication pins
-
     IOCPortConfigureSet(LNA_HIGH, IOC_PORT_RFC_GPO0,IOC_IOMODE_NORMAL);
     IOCPortConfigureSet(PA_HIGH, IOC_PORT_RFC_GPO1,IOC_IOMODE_NORMAL);
     IOCPortConfigureSet(TX_HIGH, IOC_PORT_RFC_GPO3,IOC_IOMODE_NORMAL);
+    /*  toggle led pins to show module is alive */
+        GPIO_toggle(CONFIG_GPIO_GLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_RLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_GLED);
+        delay(1000);
+        GPIO_toggle(CONFIG_GPIO_RLED);
+        delay(1000);
 
-
+// set up the interrupt pin
+//    GPIO_setCallback(EINT, w5500int);
+//    GPIO_enableInt(EINT);
     /*Modifies settings to be able to do RX*/
     /* Set the Data Entity queue for received data */
     RF_cmdPropRx.pQueue = &dataQueue;
@@ -387,11 +353,9 @@ void *mainThread(void *arg0)
     RF_cmdPropRx.maxPktLen = MAX_LENGTH;
     RF_cmdPropRx.pktConf.bRepeatOk = 1;
     RF_cmdPropRx.pktConf.bRepeatNok = 1;
-
-    /* Set TX properties also */
+    /* transmit properties */
     RF_cmdPropTx.pPkt = packet;
     RF_cmdPropTx.startTrigger.triggerType = TRIG_NOW;
-
     /* Set the max amount of bytes to read via UART */
 //    size_t bytesToRead = MAX_LENGTH;
 
@@ -404,14 +368,15 @@ void *mainThread(void *arg0)
     uartParams.readCallback = ReceiveonUARTcallback;
     uartParams.readReturnMode = UART2_ReadReturnMode_PARTIAL;
 
+    init_uart_1();
     /* Access UART */
     uart = UART2_open(CONFIG_UART2_0, &uartParams);
 
     /* Print to the terminal that the program has started */
     const char        startMsg[] = "\r\nRF-UART bridge started:\r\n";
     UART2_write(uart, startMsg, sizeof(startMsg), NULL);
-
-// Open NVS driver instance
+    start_terminal();
+    // Open NVS driver instance
 //    nvsHandle = NVS_open(CONFIG_INTERNAL, &nvsParams);
     get_NVS(buff);
     NVS_getAttrs(nvsHandle, &regionAttrs);
@@ -419,7 +384,7 @@ void *mainThread(void *arg0)
     xprint_char(EthEna);
     xprint("\n");
 //    if (EthEna == 1) {
-//      char stat = init_ether();
+      char stat = init_ether();
 //    }
     printMAC();
     myaddr = m6;    // set myaddr to last byte of MAC if not saved
@@ -429,6 +394,9 @@ void *mainThread(void *arg0)
     LcdEna = LCD_Begin();
     if(LcdEna == 0) {
         xprint("LCD ON");
+        delay(1);
+        LCD_Print(version);
+        delay(1);
     } else {
         xprint("NO LCD");
     }
@@ -438,21 +406,27 @@ void *mainThread(void *arg0)
 
     /* */
 #ifdef HAM23CMRADIO
-    RF_cmdPropRadioDivSetup.loDivider = 0x04; // set lo divider
+    RF_cmdPropRadioDivSetup.loDivider = 0x04;
+//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
     RF_cmdPropRadioDivSetup.centerFreq = freq;
+//    RF_cmdPropRadioDivSetup.intFreq = 3481;
+//    RF_cmdPropRadioDivSetup.txPower = 0x3E92;
     RF_cmdPropRadioDivSetup.txPower = 0xa73f;   //GW power
 //
-    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xc0000;   //GW speed 1200
+   RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xc0000;   //GW speed 1200
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 0x578; // GW 18-dec-2024
     RF_cmdPropRadioDivSetup.pRegOverride = our_overrides;
 #endif
     /* Request access to the radio */
     rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
-    //    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
-    //    RF_cmdPropRadioDivSetup.intFreq = 0x0d99;
-        RF_cmdPropRadioDivSetup.config.biasMode = 0x1; // should this move 4 lines up?? GW
-    //    RF_cmdPropRadioDivSetup.loDivider = 0x04; */
-    //    RF_cmdFs.frequency = 0x4ec;
-        RF_cmdFs.frequency = freq;
+
+
+//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
+//    RF_cmdPropRadioDivSetup.intFreq = 0x0d99;
+    RF_cmdPropRadioDivSetup.config.biasMode = 0x1;
+//    RF_cmdPropRadioDivSetup.loDivider = 0x04; */
+//    RF_cmdFs.frequency = 0x4ec;
+    RF_cmdFs.frequency = freq;
 
 
     /* Set the frequency */
@@ -461,65 +435,98 @@ void *mainThread(void *arg0)
     rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
                                                            RF_PriorityNormal, &ReceivedOnRFcallback,
                                                            RF_EventRxEntryDone);
+
     size_t bytesToRead = MAX_LENGTH-2; //GW 241020
     UART2_read(uart, &input, bytesToRead, NULL);
-    while(1)  {
+    while(1)
+    {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-//        GPIO_write(sigpin2,0);
-        if(debug & 4) {
-          snapshot = Runtime - timestamp;
-          if(snapshot >= 40) {
-            xprint_int(snapshot *10);
-            xprint(" uS\n");
-          }
-        }
         loopctr++;
-
+//        idle = 1; // signal that we have some time left
         /* Check if anything has been received via RF*/
-//        if(packetRxCb)
-//        if (1 == 1)
-        do
+        if(packetRxCb)      // if !=0 we have a rf packet
         {
-            currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
-//            xprint_int(currentDataEntry->status);
-//            xprint("\n");
-//            while(currentDataEntry->status == 3) {
-            /* Handle the packet data, located at &currentDataEntry->data:
-             * - Length is the first byte with the current configuration
-             * - Data starts from the second byte */
-            packetLength      = *(uint8_t*)(&currentDataEntry->data); //gets the packet length (send over with packet)
-            packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1); //data starts from 2nd byte
-            /* Copy the payload + the status byte to the packet variable */
-            memcpy(packet, packetDataPointer, (packetLength + 1));
-
-            /* Move read entry pointer to next entry */
-            RFQueue_nextEntry();
-            memcpy(input, packet, (packetLength));
-            rssi =  packet[packetLength]; // get rssi of last packet
+            memcpy(input, packet, (packetLength)); //copy to input, and get rssi
+            rssi =  packet[packetLength];
+//            size_t bytesWritten = 0;
             packetRxCb = NO_PACKET;
             //          go select who should process packet
             whatpacket(input, (packetLength));
-//            }
-        } while (currentDataEntry->status == 3);
+//            queue_uart(input,packetLength); // queue it instead 241024
+/*            if(EthEna != 1) {
+              while (bytesWritten == 0)     // here dequeue and print 241024
+                {
+                  status = UART2_write(uart, &input, packetLength, &bytesWritten);
+                  if (status != UART2_STATUS_SUCCESS)
+                  {
+//                     UART2_write() failed
+                    while (1);
+                  }
+               }
+            } else {
+                whatpacket(input, (packetLength));
+//                if(input[0] & FINFLAG)
+//                    xprint("last\n");
+            } */
+//            whatpacket(input, (packetLength));
+            /* Reset RF RX callback flag */
+        }
+
 #ifdef  HAM23CMRADIO
+     if(parchange != 0) {
+          RX_OFF();       // RX_OFF executes RF_cancelCmd(rfHandle, rfPostHandle, 1);
+            RF_close(rfHandle);
+            rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
+            rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
+                                                                 RF_PriorityNormal, &ReceivedOnRFcallback,
+                                                                 RF_EventRxEntryDone);
+            RX_ON(); // RX_ON executes    rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,RF_PriorityNormal, &ReceivedOnRFcallback,RF_EventRxEntryDone);
+            RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
+            parchange =0;   //only execute once
+        }
         if (freq != freqold) {          // set new frequency
             freqold = freq;
             RF_cmdFs.frequency = freq;
             RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
         }
 #endif
+
 #ifdef ETHERNET
 //        if (EthEna == 1) {
-//              check_ethernet();
+              check_ethernet();
 //        }
 #endif
-              /* Check if anything has been received via UART*/
-              if (bytesReadCount != 0)
-              {
-                  bytesReadCount = 0;
-              }
+        /* Check if anything has been received via UART*/
+        if (bytesReadCount != 0)
+        {
+            // we are processing uart input
+            /*The packet length is set to the number of
+             * bytes read by UART2_read() */
 
+            /*Cancel the ongoing command*/
+//            RF_cancelCmd(rfHandle, rfPostHandle, 1);
+//          status = UART2_read(uart, &input, bytesToRead, NULL);
 
+            /*Send packet*/
+//            RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
+//            SendPacket(input,bytesReadCount); //241024
+            /* Toggle green led to indicate TX */
+
+//            GPIO_toggle(CONFIG_GPIO_GLED);
+
+            /* Resume RF RX */
+/*            rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
+                                                                 RF_PriorityNormal, &ReceivedOnRFcallback,
+                                                                 RF_EventRxEntryDone); */
+//            queue_uart(&input,bytesReadCount); // 241024
+            bytesReadCount = 0;
+
+            /* Resume UART read */
+//            status = UART2_read(uart, &input, bytesToRead, NULL);
+        } else {
+//            if(cmdbytes) checkcommand();
+           checkcommand();
+        }
     }
 }
 
@@ -533,31 +540,29 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
     {
         timestamp = Runtime;
         GPIO_toggle(CONFIG_GPIO_RLED);
-//        GPIO_write(sigpin2,1);
+//        GPIO_write(sigpin,1);
         /* Get current unhandled data entry */
-//        currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
+        currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
 
         /* Handle the packet data, located at &currentDataEntry->data:
          * - Length is the first byte with the current configuration
          * - Data starts from the second byte */
-//        packetLength      = *(uint8_t*)(&currentDataEntry->data); //gets the packet length (send over with packet)
-//        packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1); //data starts from 2nd byte
+        packetLength      = *(uint8_t*)(&currentDataEntry->data); //gets the packet length (send over with packet)
+        packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1); //data starts from 2nd byte
 
         /* Copy the payload + the status byte to the packet variable */
-//        memcpy(packet, packetDataPointer, (packetLength + 1));
-
+        memcpy(packet, packetDataPointer, (packetLength + 1));
         /* Move read entry pointer to next entry */
-//        RFQueue_nextEntry();
+        RFQueue_nextEntry();
 
         packetRxCb = PACKET_RECEIVED;
-//        GPIO_toggle(sigpin2);
-    //    vTaskNotifyGiveFromISR(thisprog, &xHigherPriorityTaskWoken);
         xTaskNotifyFromISR(Radioprog,1,eSetBits,&xHigherPriorityTaskWoken );
         xHigherPriorityTaskWoken = pdTRUE;
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         Recd++;
     }
 }
+
 /* Callback function called when data is received via UART */
 void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status)
 {
@@ -566,18 +571,26 @@ void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void
         /* RX error occured in UART2_read() */
         while (1) {}
     }
-//      bytesReadCount = count; //241025
+      bytesReadCount = count; //241025
       queue_uart(buffer,count); // 241024
       status = UART2_read(uart, &input, 253, NULL); //241026
 }
 
 void TimerCallbackFunction(void) {
     Runtime++;
-    if(Timer0 != 0) {
-        Timer0--;    // decrement timer if counting
-    }
-    if(Timer1 != 0) {
-        Timer1--;
-    }
+    if(Timer0) Timer0--;    // decrement timer if counting
+    if(Timer1) Timer1--;
+    if(Timer_per) Timer_per--;
+    if(Timer_def) Timer_def--; 
+    if(Timer_tdm) Timer_tdm--;
 }
-
+/* unsigned int eints = 0;
+uint8_t pktbuf1[1514];
+void w5500int(uint_least8_t index) {
+    int reclen;
+    reclen = w5500readFrame(pktbuf1, sizeof(pktbuf1));
+    queue_eth(pktbuf1,reclen, eints & 0xff);
+    setSIR(1);  // only socket 0
+    setSn_IR(4);
+    eints++;
+} */
