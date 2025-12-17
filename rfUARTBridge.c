@@ -64,6 +64,7 @@ Timer_Params    Timparams;
 /* Application Header files */
 #include "RFQueue.h"
 #include "Ampr-radio.h"
+#include "Ampr-queue.h"
 #include <ti_radio_config.h>
 
 /* ======== uart2 ======== */
@@ -268,7 +269,7 @@ uint32_t our_overrides[] =
 TaskHandle_t Radioprog;
 int timestamp;
 
-void *mainThread(void *arg0)
+void mainThread(void *arg0)
 {
     TaskStatus_t radtask;
     uint8_t *op;
@@ -380,12 +381,6 @@ void *mainThread(void *arg0)
 //    nvsHandle = NVS_open(CONFIG_INTERNAL, &nvsParams);
     get_NVS(buff);
     NVS_getAttrs(nvsHandle, &regionAttrs);
-    xprint("EthEna was = ");
-    xprint_char(EthEna);
-    xprint("\n");
-//    if (EthEna == 1) {
-      char stat = init_ether();
-//    }
     printMAC();
     myaddr = m6;    // set myaddr to last byte of MAC if not saved
     xprint("\n");
@@ -440,36 +435,57 @@ void *mainThread(void *arg0)
     UART2_read(uart, &input, bytesToRead, NULL);
     while(1)
     {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        amprEntry_t amprEntry = ampr_dequeue(100);
         loopctr++;
-//        idle = 1; // signal that we have some time left
+
         /* Check if anything has been received via RF*/
-        if(packetRxCb)      // if !=0 we have a rf packet
+        if(amprEntry.type == AMPR_QUEUE_RADIO)      // if !=0 we have a rf packet
         {
-            memcpy(input, packet, (packetLength)); //copy to input, and get rssi
-            rssi =  packet[packetLength];
-//            size_t bytesWritten = 0;
-            packetRxCb = NO_PACKET;
+            /* Get current unhandled data entry */
+            currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
+
+            /* Handle the packet data, located at &currentDataEntry->data:
+             * - Length is the first byte with the current configuration
+             * - Data starts from the second byte */
+            packetLength      = *(uint8_t*)(&currentDataEntry->data); //gets the packet length (send over with packet)
+            packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1); //data starts from 2nd byte
+
+            /* Copy the payload + the status byte to the packet variable */
+            memcpy(packet, packetDataPointer, (packetLength + 1));
+            /* Move read entry pointer to next entry */
+            RFQueue_nextEntry();
+
+            rssi =  packet[packetLength]; // get rssi
+
             //          go select who should process packet
-            whatpacket(input, (packetLength));
-//            queue_uart(input,packetLength); // queue it instead 241024
-/*            if(EthEna != 1) {
-              while (bytesWritten == 0)     // here dequeue and print 241024
-                {
-                  status = UART2_write(uart, &input, packetLength, &bytesWritten);
-                  if (status != UART2_STATUS_SUCCESS)
-                  {
-//                     UART2_write() failed
-                    while (1);
-                  }
-               }
-            } else {
-                whatpacket(input, (packetLength));
-//                if(input[0] & FINFLAG)
-//                    xprint("last\n");
-            } */
-//            whatpacket(input, (packetLength));
-            /* Reset RF RX callback flag */
+            whatpacket(packet, (packetLength));
+        }
+        else if(amprEntry.type == AMPR_QUEUE_ETH) {
+            dequeue_eth(&amprEntry.ethHandle);
+        }
+        else {
+            if(Timer_def == 0) {
+                    if((uartlen() != 0)) {
+                     current_defer = 80 + uartlen();
+                     GPIO_write(sigpin2,1);
+                     RX_OFF();
+                     dequeue_uart();
+                     RX_ON();
+                     GPIO_write(sigpin2,0);
+                 } else {  // nothing to send, just send tdma
+                     if(Timer_tdm == 0) {
+         //                  xprint(".");
+         //                GPIO_write(sigpin3,1);
+                         RX_OFF();
+                         send_tdma_packet();
+                         RX_ON();
+         //                GPIO_write(sigpin3,0);
+                         Timer_tdm = TDMAPERIOD;
+                           Timer_def = tdelay; // do not transmit immediately
+          //               Timer_def = 1; // do not transmit immediately
+                     }
+                 }
+            }
         }
 
 #ifdef  HAM23CMRADIO
@@ -491,42 +507,7 @@ void *mainThread(void *arg0)
         }
 #endif
 
-#ifdef ETHERNET
-//        if (EthEna == 1) {
-              check_ethernet();
-//        }
-#endif
-        /* Check if anything has been received via UART*/
-        if (bytesReadCount != 0)
-        {
-            // we are processing uart input
-            /*The packet length is set to the number of
-             * bytes read by UART2_read() */
-
-            /*Cancel the ongoing command*/
-//            RF_cancelCmd(rfHandle, rfPostHandle, 1);
-//          status = UART2_read(uart, &input, bytesToRead, NULL);
-
-            /*Send packet*/
-//            RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, RF_PriorityNormal, NULL, 0);
-//            SendPacket(input,bytesReadCount); //241024
-            /* Toggle green led to indicate TX */
-
-//            GPIO_toggle(CONFIG_GPIO_GLED);
-
-            /* Resume RF RX */
-/*            rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
-                                                                 RF_PriorityNormal, &ReceivedOnRFcallback,
-                                                                 RF_EventRxEntryDone); */
-//            queue_uart(&input,bytesReadCount); // 241024
-            bytesReadCount = 0;
-
-            /* Resume UART read */
-//            status = UART2_read(uart, &input, bytesToRead, NULL);
-        } else {
-//            if(cmdbytes) checkcommand();
-           checkcommand();
-        }
+        checkcommand();
     }
 }
 
@@ -534,31 +515,11 @@ void *mainThread(void *arg0)
  * Function copies the data in a variable, packet, and sets packetRxCb */
 void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 {
-//    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    BaseType_t xHigherPriorityTaskWoken = pdTRUE;
     if (e & RF_EventRxEntryDone)
     {
         timestamp = Runtime;
         GPIO_toggle(CONFIG_GPIO_RLED);
-//        GPIO_write(sigpin,1);
-        /* Get current unhandled data entry */
-        currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
-
-        /* Handle the packet data, located at &currentDataEntry->data:
-         * - Length is the first byte with the current configuration
-         * - Data starts from the second byte */
-        packetLength      = *(uint8_t*)(&currentDataEntry->data); //gets the packet length (send over with packet)
-        packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1); //data starts from 2nd byte
-
-        /* Copy the payload + the status byte to the packet variable */
-        memcpy(packet, packetDataPointer, (packetLength + 1));
-        /* Move read entry pointer to next entry */
-        RFQueue_nextEntry();
-
-        packetRxCb = PACKET_RECEIVED;
-        xTaskNotifyFromISR(Radioprog,1,eSetBits,&xHigherPriorityTaskWoken );
-        xHigherPriorityTaskWoken = pdTRUE;
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        ampr_queueRadioFromISR();
         Recd++;
     }
 }

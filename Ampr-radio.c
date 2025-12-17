@@ -32,6 +32,8 @@ mailny this contains the command interpreter, and various functions called by th
 // #include "heard.h" // obsolete
 #include "lcd.h"
 #include "tdma.h"
+#include "ethBuf.h"
+#include "eth_if.h"
 
 #define E5500   //compilation switch
 
@@ -113,17 +115,7 @@ int tdma_ena = 0;   // tdma packet disabled for now
 
 unsigned long RRbytes,RSbytes,ERbytes,ESbytes,URbytes,USbytes;
 unsigned long RRpkts,RSpkts,ERpkts,ESpkts,URpkts,USpkts,TRpkts,TSpkts,ARPreq,ARPans;
-#ifdef CC1314R10
-#define EBCOUNT 30
-#else
-#define EBCOUNT 22
-#endif
-    int eiidx = 0;
-    int eoidx = 0;
 
-    uint8_t ebufs[EBCOUNT][1514];
-    int ebcount[EBCOUNT];
-    uint8_t ebnumber[EBCOUNT];
 
 uint8_t debbuf[100][30];
 
@@ -555,13 +547,13 @@ void parse_cmd(char *cline, int cnt) {
             xprint_char(debbuf[i][1]);
             xprint("\n");
         }
-    } else if (strcmp(cline, ("dq")) == 0) {
+/*    } else if (strcmp(cline, ("dq")) == 0) { // TODO implement with queue
         for (int i = 0;i<EBCOUNT;i++) {
             xprint_char(ebnumber[i]);
             xprint(" ");
             xprint_int(ebcount[i]);
             xprint("\n");
-        }
+        }*/
 /*    } else if (strcmp(cline, ("sn")) == 0) {
         char r;
         if (argc == 2)
@@ -916,8 +908,7 @@ void log_from_queue(char * buffer, uint8_t count) {
     xprint_schar(rssi);
     xprint("\n");
 } */
-void printMAC(void) {
-    char buff[40];
+void getMAC(uint8_t* mac) {
     uint64_t macAddrLsb = HWREG(FCFG1_BASE + FCFG1_O_MAC_15_4_0);
     uint64_t macAddrMsb = HWREG(FCFG1_BASE + FCFG1_O_MAC_15_4_1);
     uint64_t macAddress = (uint64_t)(macAddrMsb << 32) + macAddrLsb;
@@ -927,12 +918,18 @@ void printMAC(void) {
     m4 = (macAddress>>16) & 255;
     m5 = (macAddress>>8) & 255;
     m6 = (macAddress) & 255;
-    my_hwaddr[0] = (macAddress>>56) & 255;
-    my_hwaddr[1] = (macAddress>>48) & 255;
-    my_hwaddr[2] = (macAddress>>40) & 255;
-    my_hwaddr[3] = (macAddress>> 16) & 255;
-    my_hwaddr[4] = (macAddress>>8) & 255;
-    my_hwaddr[5] = (macAddress) & 255;
+    uint8_t hwaddr[6];
+    hwaddr[0] = (macAddress>>56) & 255;
+    hwaddr[1] = (macAddress>>48) & 255;
+    hwaddr[2] = (macAddress>>40) & 255;
+    hwaddr[3] = (macAddress>> 16) & 255;
+    hwaddr[4] = (macAddress>>8) & 255;
+    hwaddr[5] = (macAddress) & 255;
+    memcpy(mac, hwaddr, sizeof(hwaddr));
+}
+void printMAC(void) {
+    char buff[40];
+    getMAC(my_hwaddr);
     sprintf(buff,"MAC : %02x:%02x:%02x:%02x:%02x:%02x\n",m1,m2,m3,m4,m5,m6);
     xprint(buff);
 }
@@ -996,164 +993,96 @@ char reseg;
 
 // queue an ethernet packet. do not bother with overwrite
     void queue_eth(uint8_t *buffer,int count,uint8_t pnum) {
-     quedepth++;
      if(count > 1514) {
          xprint("QUe ptr\n");
          while(1) {}
      }
-     memcpy(&ebufs[eiidx][0], buffer, count);
-     ebcount[eiidx] = count;
-     ebnumber[eiidx] = pnum;
-     if(++eiidx >= EBCOUNT) {
-        eiidx = 0;
-     }
+     // TODO temporary implementation until buffer handles are used in ethproc
+     ethBufHandle_t handle;
+     ethBuf_get(&handle);
+     if(handle.buffer == NULL)
+         return; // No free buffer, drop packet
+     memcpy(handle.buffer, buffer, count);
+     handle.bytesUsed = count;
+     handle.packetNumber = pnum;
+     // Queue packet (or drop it if the queue is full)
+     ampr_queueEth(&handle); // TODO should not be processed like a packet incoming from the ethernet interface
     }
-    int ethlen(void) {
-         if(eoidx != eiidx) {
-             return(ebcount[eoidx]);
-         } else {
-             return(0);
-         }
-     }
+
     uint8_t extrabuf[1500];
 
-    int dequeue_eth(void) {
-      int count;
-      char diff;
-      if (quedepth > quemax) quemax = quedepth;
-      count = 0;
-      if(retran) {               // if peer did not ack my last sent, back up index one packet
-          diff = my_S - his_R;
-/*          if(debug & 32) {
-            xprint("Re Diff : ");
-            xprint_char(diff);
-            xprint("\n");
-          } */
-          if (diff == 1) {
-            if(eoidx == 0) {      // if index will wrap
-              eoidx = EBCOUNT-1;  // set it to biggest
-            } else {
-              eoidx--;          // just set to previous
-            }
-            quedepth++;         // adjust que depth, cause we add a apcket
-          }
-          if (debug & 32) {
-/*            xprint("Ret his_R : ");
-            xprint_char(his_R);
-            xprint(" ");
-            xprint_char(my_S);
-            xprint(" ");
-            xprint_char(diff);
-            xprint(" Ret "); */
-            xprint("ReTX : ");
-            xprint_char(ebnumber[eoidx]);
-            xprint("\n");
-          }
-        rexmitctr++;
-        retran = 0;             // and retran is done
-      }
-      if(eoidx != eiidx) {              // if queue not empty
-          if(ebcount[eoidx] != 0) {     // must be a valid count
-              if(ebcount[eoidx] <= 1514) {
+    int dequeue_eth(ethBufHandle_t* bufferHandle) {
+        if(bufferHandle->buffer == NULL)
+            return 0;
+
+        my_Q++;
+        bufferHandle->packetNumber = my_Q;
+
+        int count;
+        char diff;
+        count = 0;
+      // TODO: implement retransmit with retransmit queue (before checking main queue)
+//      if(retran) {               // if peer did not ack my last sent, back up index one packet
+//          diff = my_S - his_R;
+///*          if(debug & 32) {
+//            xprint("Re Diff : ");
+//            xprint_char(diff);
+//            xprint("\n");
+//          } */
+//          if (diff == 1) {
+//            if(eoidx == 0) {      // if index will wrap
+//              eoidx = EBCOUNT-1;  // set it to biggest
+//            } else {
+//              eoidx--;          // just set to previous
+//            }
+//            quedepth++;         // adjust que depth, cause we add a apcket
+//          }
+//          if (debug & 32) {
+///*            xprint("Ret his_R : ");
+//            xprint_char(his_R);
+//            xprint(" ");
+//            xprint_char(my_S);
+//            xprint(" ");
+//            xprint_char(diff);
+//            xprint(" Ret "); */
+//            xprint("ReTX : ");
+//            xprint_char(ebnumber[eoidx]);
+//            xprint("\n");
+//          }
+//        rexmitctr++;
+//        retran = 0;             // and retran is done
+//      }
+        if(bufferHandle->bytesUsed != 0 && bufferHandle->bytesUsed <= 1514) {     // must be a valid count
 //                my_S = ebnumber[eoidx];
 //                send_epkt(&ebufs[eoidx][0], ebcount[eoidx]);
 //                count = ebcount[eoidx];
 
-                if (memcmp (&ebufs[eoidx][0], my_hwaddr,6) == 0) {
-                    proc_eth(&ebufs[eoidx][0], ebcount[eoidx],1);
-                } else {
+            if (memcmp (bufferHandle->buffer, my_hwaddr,6) == 0) {
+                proc_eth(bufferHandle->buffer, bufferHandle->bytesUsed,1);
+            } else {
 
 //                    GPIO_write(sigpin2,1);
 //                    GPIO_toggle(sigpin2);a
 //                    xprint("S ");
 //                    xprint_char(my_S);
 //                    xprint("\n");
-                    my_S = ebnumber[eoidx];
-                    send_epkt(&ebufs[eoidx][0], ebcount[eoidx]);
-                    count = ebcount[eoidx];
-                    test_epkt(&ebufs[eoidx][0],count);
-                    if(ebufs[eoidx][0] == 0xff) {
-                       memcpy(extrabuf,&ebufs[eoidx][0],ebcount[eoidx]); // copy broadcast contents
-                       proc_eth(extrabuf, count,1);
-                    }
+                my_S = bufferHandle->packetNumber;
+                count = bufferHandle->bytesUsed;
+                send_epkt(bufferHandle->buffer,count);
+                test_epkt(bufferHandle->buffer,count);
+                if(bufferHandle->buffer[0] == 0xff) {
+                    memcpy(extrabuf,bufferHandle->buffer,bufferHandle->bytesUsed); // copy broadcast contents
+                    proc_eth(extrabuf, count,1);
                 }
-
-              } else {
-                  xprint("QUe count\n");
-                  while (1);
-              }
-              if(++eoidx >= EBCOUNT) {
-                eoidx = 0;
-              }
-          }
-      }
-      if(count != 0) quedepth--;
-//      if((count != 0) && (diff = 0)) quedepth--;
-      return(count);
+            }
+        } else {
+            xprint("QUe count\n");
+            while (1);
+        }
+        ethBuf_free(bufferHandle);
+        return(count);
     }
 
-
-//uint8_t savepacket[1514];
-//int savelen;
-//uint8_t savepktnr;
-// we get here when we are checking for ethernet packets
-// we do this before serving the ethernet for more accurate packet order
-// retran should be 1 and wantednum the wanted packet
-void doretransmit(void) {
-
-//    xprint("doretransmit\n");
-//    if(retran != 0) {
-      if(debug & 1024)  {
-        wantednum++;    // wantednum up til now is his_R,
-        xprint("Retran want: ");
-        xprint_char(wantednum);
-//        xprint_char(his_S);
-//        xprint(" Our R ");
-//        xprint_char(my_R);
-//        xprint(" Our_S ");
-//        xprint_char(my_S);
-        xprint(" His R ");
-        xprint_char(his_R);
-//        xprint(" want ");
-//        xprint(" len ");
-//        xprint_int(savelen);
-        xprint("\n");
-/*        if(my_R != his_S) {
-            xprint(" we want :");
-            xprint_char(my_R + 1);
-            xprint("\n");
-        } */
-      } // debug & 8
-      char found = 0;
-      for(int i=0;i<EBCOUNT;i++) {
-//          if(his_R + 1 == ebnumber[i]) {
-          if(wantednum == ebnumber[i]) {
-              if(debug & 8 ) {
-                xprint("Lookup match ");
-                xprint_char(ebnumber[i]);
-                xprint("\n");
-                found=1;
-//                rexmitctr++;
-              }
-//              my_S = ebnumber[i];       // set our S in synch GW 241227
-              if(ebcount[i] != 0) {
-                my_S++;
-                send_epkt(&ebufs[i][0],ebcount[i]);
-              }
-/*              xprint("S : ");
-              xprint_char(ebnumber[i]);
-              xprint("\n"); */
-              break;
-          }
-      }
-      if ((debug& 8) && (found == 0)) {
-          xprint("Not Found ");
-          xprint_char(wantednum );
-          xprint("\n");
-      }
-      retran = 0;
-//    } // if retran != 0
-}
 
 uint8_t ackbuf[30];
 
@@ -1182,7 +1111,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           // now
           segnum = 0; //start all radio packets with seg 0
 // check packet length
-//          RX_OFF();
+          RX_OFF();
           send_tdma_packet();       // for now, just send before data
           while (reclen > chunk){
             int src = chunk * segnum;
@@ -1253,75 +1182,10 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           } */
           Timer_def = tdelay; //set defer timer
       }
+      RX_ON();
 //   } // ethena = 1
 }
-void check_ethernet() {
-   int reclen;
-   GPIO_toggle(sigpin3); // just to check loop time
 
-   if (EthEna == 1) {
-   // first do any requested retransmissions
-   // retran should be 1
-   // wantednum should be desired packet = his received + 1
-
-     do {
-//         GPIO_write(sigpin,1);
-         reclen = w5500readFrame(pktbuf, sizeof(pktbuf));
-//         GPIO_write(sigpin,0);
-
-         if(reclen != 0) {
-//           GPIO_write(sigpin,1);
-//             my_S++;
-//             queue_eth(pktbuf,reclen,my_S);
-             my_Q++;
-             queue_eth(pktbuf,reclen,my_Q);
-//           GPIO_toggle(sigpin);
-//           send_epkt(pktbuf, reclen);
-//           GPIO_toggle(sigpin);
-//             test_epkt(pktbuf,reclen);
-//           GPIO_toggle(sigpin);
-//           xprint("X\n");
-         }
-     } while (reclen != 0);
-/* now we have queued all frames from the w5500
- * now dequeueu them one at the time
- */
-   } // if ethena
-   if(Timer_def == 0) {
-//      if (EthEna == 1) {
-           if((uartlen() != 0) || (ethlen() != 0)) {
-            current_defer = 80 + uartlen() + ethlen(); //
-//            snapshot = Runtime;    //
-//             snapbytes = current_defer;
-//             snapshots[snapctr]
-            GPIO_write(sigpin2,1);
-            RX_OFF();
-//            send_tdma_packet();
-            dequeue_uart();
-//            if (EthEna == 1) {
-                dequeue_eth();
- //               xprint("Q-");
-//            }
-            RX_ON();
-            GPIO_write(sigpin2,0);
-
- //             Timer_def = 160; // why was this set???
-        } else {  // nothing to send, just send tdma
-            if(Timer_tdm == 0) {
-//                  xprint(".");
-//                GPIO_write(sigpin3,1);
-                RX_OFF();
-                send_tdma_packet();
-                RX_ON();
-//                GPIO_write(sigpin3,0);
-                Timer_tdm = TDMAPERIOD;
-                  Timer_def = tdelay; // do not transmit immediately
- //               Timer_def = 1; // do not transmit immediately
-            }
-          }
-       }
-//   }  //    deferal timer
-}
 int dbgptr;
 /* process tail packet, and check that we agree on sequence, drop is segments dropped on receive */
 void proc_type7(uint8_t *buffer, int len, char drop) {
@@ -1557,7 +1421,7 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
                        proc_eth(extrabuf, ecount,2);
                     }
                     if(EthEna) {
-                      w5500sendFrame(xmitbuffer,ecount);
+                      ethIf_send(xmitbuffer,ecount);
                     }
                     test_epkt(xmitbuffer,ecount);
                     ecount = 0;

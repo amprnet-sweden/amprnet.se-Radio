@@ -51,6 +51,9 @@
 /* Example/Board Header files */
 #include "ti_drivers_config.h"
 #include "heard.h"
+#include "eth_if.h"
+#include "Ampr-queue.h"
+#include "ethBuf.h"
 
 #if defined(CONFIG_LP_CC2674R10_FPGA)
 #include <ti/drivers/power/PowerCC26XX.h>
@@ -63,6 +66,9 @@ extern void *mainThread(void *arg0);
 /* Stack size in bytes */
 #define THREADSTACKSIZE    2096
 //#define THREADSTACKSIZE    3000
+
+#define MAIN_PRIO 5
+#define ETH_IF_PRIO 4
 
 /*
  *  ======== main ========
@@ -104,9 +110,9 @@ int main(void)
         while (1);
     }
 
-    retc = pthread_create(&thread, &attrs, mainThread, NULL);
-    if (retc != 0) {
-        /* pthread_create() failed */
+    BaseType_t task_res = xTaskCreate(mainThread, "main", 400, NULL, MAIN_PRIO, NULL);
+    if (task_res != pdPASS) {
+        /* xTaskCreate() failed */
         while (1);
     }
 //    attrs.priority = 3;
@@ -136,6 +142,11 @@ int main(void)
     IOCPortConfigureSet(IOID_29, IOC_PORT_RFC_GPO0, IOC_IOMODE_NORMAL);
     IOCPortConfigureSet(IOID_30, IOC_PORT_RFC_GPI0, IOC_INPUT_ENABLE);
 #endif
+
+    task_res = xTaskCreate(vEthIf_task, "Eth IF", 200, NULL, ETH_IF_PRIO, NULL);
+
+    ethBuf_init();
+    ampr_initQueue();
 
     /* Start the FreeRTOS scheduler */
     vTaskStartScheduler();

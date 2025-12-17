@@ -1,3 +1,8 @@
+#ifndef AMPR_RADIO_H
+#define AMPR_RADIO_H
+
+#include <stdint.h>
+
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 // mode byte bit definitions
@@ -95,3 +100,8 @@ void smeter(signed char rssi);
 char init_ether(void);
 void proc_tdma_packet(uint8_t * buffer, char len);
 void proc_eth(uint8_t * buf,int count,char port);
+void ampr_initQueue();
+void getMAC(uint8_t* mac);
+void xprint(char *buf);
+
+#endif // AMPR_RADIO_H

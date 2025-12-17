@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "Ampr-radio.h"
-#include "w5500.h"
+#include "eth_if.h"
 
 
 uint8_t my_ip[] = {44,5,5,20};
@@ -53,7 +53,7 @@ void arp_reply(uint8_t * buf, int count,char port) {
     memcpy(&buf[28], my_ip,4);     // and fill in my address
     if (port == 1) {
       if(EthEna) {
-        w5500sendFrame(buf,count);
+        ethIf_send(buf,count);
       }
 /*          for(int i=0;i<count;i++) {
                  xprint_xchar(buf[i]);
@@ -102,7 +102,7 @@ void icmp_reply(uint8_t * buf, int count,char port) {
           buf[36] += 8;
           if(port == 1) {
             if(EthEna) {
-              w5500sendFrame(buf,count);
+              ethIf_send(buf,count);
             }
           }
           if(port == 2) {
