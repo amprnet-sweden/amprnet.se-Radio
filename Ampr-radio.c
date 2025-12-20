@@ -43,12 +43,16 @@ UART2_Params uartParams1;
 
 
 
-
+// radio parameters
+unsigned int deviation = 350;
+unsigned int bitrate = 0xC0000;
+unsigned int rxBw = 100;
+//
 int EthEna = 0;
 int LcdEna = 1;
 int debug = 0;
-int tdelay = 5;
-int retrena = 1;        // retransmit enabled by default
+int tdelay = 6;     // default delay afte tx
+int retrena = 0;        // retransmit enabled by default
 char cc;
 int Txcount;      // the number of test packets
 int Becount = 0;      // beacon counter
@@ -75,7 +79,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="V 0.95b";
+char version[] ="T 0.95c";
 //settings
 #if defined HAM23CMRADIO
 unsigned int freq = 1250;
@@ -268,9 +272,16 @@ void parse_cmd(char *cline, int cnt) {
         }
         xprint("\n"); */
     } else if (strcmp(cline, ("mode")) == 0) {
-        xprint("Mode \n");
-         xprint_char(mode);
-         xprint("\n");
+        if(argc == 2) {
+          mode = atoi(argv[1]);
+          if(mode > 1) {
+              printf("Mode 0 or 1 for now \n");
+              mode = 1;
+          }
+        }
+        xprint("Mode ");
+        xprint_char(mode);
+        xprint("\n");
     } else if (strcmp(cline, ("par")) == 0) {
         xprint("Changing parameters \n");
         parchange = 1; 
@@ -641,7 +652,30 @@ void parse_cmd(char *cline, int cnt) {
             }
             xprint("\n");
         }
-
+    } else if (strcmp(cline, ("deviation")) == 0) {
+        if (argc == 2) {
+          deviation = atoi(argv[1]);
+        } else {
+            xprint("deviation = ");
+            xprint_int(deviation);
+            xprint("\n");
+        }
+    } else if (strcmp(cline, ("rate")) == 0) {
+        if (argc == 2) {
+          bitrate = atoi(argv[1]) * 0x10000;
+        } else {
+            xprint("bitrate = ");
+            xprint_int(bitrate/0x10000);
+            xprint("\n");
+        }
+    } else if (strcmp(cline, ("rxbw")) == 0) {
+            if (argc == 2) {
+              rxBw = atoi(argv[1]);
+            } else {
+                xprint("rxBw = ");
+                xprint_int(rxBw);
+                xprint("\n");
+            }
     }  else {
           if (argc > 0) {
              xprint("Illegal command\n");
@@ -697,6 +731,16 @@ void parse_cmd(char *cline, int cnt) {
                     myaddr = buff[4];
                     peeraddr = buff[5];
                     mode = buff[6];
+                    switch(mode) {
+                    case 0:
+                        bitrate = 0xc0000;
+                        deviation = 350;
+                        break;
+                    case 1:
+                        bitrate = 0xe0000;
+                        deviation = 550;
+                        break;
+                    }
                     EthEna = buff[7] & 1;
                     for(int i=0;i<12;i++) {
                          my_call[i] = buff[8+i];
@@ -708,6 +752,9 @@ void parse_cmd(char *cline, int cnt) {
             }
             xprint("Stored Frequency ");
             xprint_int(freq);
+            xprint("\n");
+            xprint("Radio mode ");
+            xprint_char(mode);
             xprint("\n");
             xprint("Ethernet ");
             xprint_char(EthEna);

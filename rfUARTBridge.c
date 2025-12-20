@@ -68,7 +68,8 @@ Timer_Params    Timparams;
 #include <ti/devices/cc13x1_cc26x1/driverlib/ioc.h>
 /***** Defines *****/
 #define HAM23CMRADIO 1
-
+//#define FSK4 1
+//#define SYN4 1
 /* Packet RX Configuration */
 #define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
 //#define MAX_LENGTH             64 /* Max length byte the radio will accept */
@@ -118,6 +119,9 @@ unsigned int Timer_def = 1;  // defer timer *** problem, should be possible to s
 unsigned int Timer_tdm = 1000; // tdma timer
 unsigned int Timer0 = 500;
 unsigned int Timer1 = 0;
+extern unsigned int deviation;
+extern unsigned int bitrate;
+extern unsigned int rxBw;
 extern int EthEna;
 extern int tdelay;
 int parchange;
@@ -341,6 +345,10 @@ void *mainThread(void *arg0)
     /* transmit properties */
     RF_cmdPropTx.pPkt = packet;
     RF_cmdPropTx.startTrigger.triggerType = TRIG_NOW;
+#ifdef SYN4
+    RF_cmdPropTx.syncWord = 0xdf5f55df;     //4fsk
+    RF_cmdPropRx.syncWord = 0xdf5f55df;     //4fsk
+#endif
     /* Set the max amount of bytes to read via UART */
 //    size_t bytesToRead = MAX_LENGTH;
 
@@ -369,8 +377,9 @@ void *mainThread(void *arg0)
     xprint_char(EthEna);
     xprint("\n");
 //    if (EthEna == 1) {
-      char stat = init_ether();
+//      char stat = init_ether();
 //    }
+    init_ether();
     printMAC();
     myaddr = m6;    // set myaddr to last byte of MAC if not saved
     xprint("\n");
@@ -392,25 +401,36 @@ void *mainThread(void *arg0)
     /* */
 #ifdef HAM23CMRADIO
     RF_cmdPropRadioDivSetup.loDivider = 0x04;
-//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
     RF_cmdPropRadioDivSetup.centerFreq = freq;
 //    RF_cmdPropRadioDivSetup.intFreq = 3481;
-//    RF_cmdPropRadioDivSetup.txPower = 0x3E92;
     RF_cmdPropRadioDivSetup.txPower = 0xa73f;   //GW power
 //
-   RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xc0000;   //GW speed 1200
-//    RF_cmdPropRadioDivSetup.modulation.deviation = 0x578; // GW 18-dec-2024
+#ifdef FSK4
+    RF_cmdPropRadioDivSetup.formatConf.fecMode = 9; // GW 02-dec-25 enable 4fsk
+    RF_cmdPropRadioDivSetup.modulation.deviation = 600;
+#endif
+
+//    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xe0000;   //GW speed 1400
+//    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xf0000;   //GW speed 1500
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 0x232; // GW deviation 750 *0.75
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 0x2ee; // GW deviation 750 *0.75
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 350; // GW deviation 700
+//    RF_cmdPropRadioDivSetup.rxBw = 100; // 2185 khz
+//    RF_cmdPropRadioDivSetup.rxBw = 101; // 2486 khz
+//    RF_cmdPropRadioDivSetup.rxBw = 95; // 3134 khz
+//    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xc0000;   //GW speed 1200
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 500; // GW 18-dec-2024
+    RF_cmdPropRadioDivSetup.rxBw = rxBw; // 3134 khz
+    RF_cmdPropRadioDivSetup.modulation.deviationStepSz = 1; // GW deviation step 1000 hz
+    RF_cmdPropRadioDivSetup.symbolRate.rateWord = bitrate;   //GW speed 1500
+    RF_cmdPropRadioDivSetup.modulation.deviation = deviation; // GW 18-dec-2024
     RF_cmdPropRadioDivSetup.pRegOverride = our_overrides;
 #endif
     /* Request access to the radio */
     rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
 
 
-//    RF_cmdPropRadioDivSetup.centerFreq = 0x04ec;
-//    RF_cmdPropRadioDivSetup.intFreq = 0x0d99;
     RF_cmdPropRadioDivSetup.config.biasMode = 0x1;
-//    RF_cmdPropRadioDivSetup.loDivider = 0x04; */
-//    RF_cmdFs.frequency = 0x4ec;
     RF_cmdFs.frequency = freq;
 
 
@@ -461,6 +481,10 @@ void *mainThread(void *arg0)
      if(parchange != 0) {
           RX_OFF();       // RX_OFF executes RF_cancelCmd(rfHandle, rfPostHandle, 1);
             RF_close(rfHandle);
+            RF_cmdPropRadioDivSetup.rxBw = rxBw; // 3134 khz
+            RF_cmdPropRadioDivSetup.modulation.deviationStepSz = 1; // GW deviation step 1000 hz
+            RF_cmdPropRadioDivSetup.symbolRate.rateWord = bitrate;   //GW speed 1500
+            RF_cmdPropRadioDivSetup.modulation.deviation = deviation; // GW 18-dec-2024
             rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
             rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
                                                                  RF_PriorityNormal, &ReceivedOnRFcallback,
