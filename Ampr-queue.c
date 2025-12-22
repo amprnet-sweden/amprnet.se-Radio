@@ -16,37 +16,55 @@
 // This handle must be either queued (in this queue or another)
 // or freed using ethBuf_free()
 QueueHandle_t amprQueue;
+QueueHandle_t ethQueue;
 uint16_t droppedEthPackets = 0;
 uint16_t droppedRadioPackets = 0;
+uint16_t droppedRadioSlots = 0;
 
 void ampr_initQueue() {
-    amprQueue = xQueueCreate(EBCOUNT+RADIOCOUNT, sizeof(amprEntry_t));
+    amprQueue = xQueueCreate(RADIOCOUNT, sizeof(amprEntry_t));
+    ethQueue = xQueueCreate(EBCOUNT, sizeof(ethBufHandle_t));
 }
 
 void ampr_queueEth(ethBufHandle_t* bufferHandle) {
-    amprEntry_t entry;
-    entry.type = AMPR_QUEUE_ETH;
-    entry.ethHandle = *bufferHandle;
-    if(!xQueueSend(amprQueue, &entry, 0)) {
+    if(!xQueueSend(ethQueue, bufferHandle, 0)) {
         ethBuf_free(bufferHandle);
         droppedEthPackets++;
     }
 }
 
-amprEntry_t ampr_dequeue(uint32_t timeout_ms) {
+amprEntry_t ampr_dequeueRadio(uint32_t timeout_ms) {
     amprEntry_t entry = {
                          .type = AMPR_QUEUE_NONE,
-                         .ethHandle = { .buffer = NULL, .bytesUsed = 0, .packetNumber = 0 }
     };
     xQueueReceive(amprQueue, &entry, pdMS_TO_TICKS(timeout_ms));
     return entry; // Packet type NONE if queue was empty
 }
 
-void ampr_queueRadioFromISR()
+ethBufHandle_t ampr_dequeueEth() {
+    ethBufHandle_t buffer = {
+                             .buffer = NULL,
+                             .bytesUsed = 0,
+                             .packetNumber = 0
+    };
+    xQueueReceive(ethQueue, &buffer, 0);
+    return buffer;
+}
+
+void ampr_queueRadioRXFromISR()
 {
     amprEntry_t entry;
-    entry.type = AMPR_QUEUE_RADIO;
+    entry.type = AMPR_QUEUE_RX_DATA;
     if(!xQueueSendFromISR(amprQueue, &entry, 0)) {
         droppedRadioPackets++; // Note: The packet is not actually dropped from the RFQueue
+    }
+}
+
+void ampr_queueRadioTXFromISR()
+{
+    amprEntry_t entry;
+    entry.type = AMPR_QUEUE_TX_SLOT;
+    if(!xQueueSendFromISR(amprQueue, &entry, 0)) {
+        droppedRadioSlots++;
     }
 }

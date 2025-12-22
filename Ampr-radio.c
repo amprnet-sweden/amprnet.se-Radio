@@ -34,6 +34,7 @@ mailny this contains the command interpreter, and various functions called by th
 #include "tdma.h"
 #include "ethBuf.h"
 #include "eth_if.h"
+#include "Ampr-queue.h"
 
 #define E5500   //compilation switch
 
@@ -1011,12 +1012,13 @@ char reseg;
 
     uint8_t extrabuf[1500];
 
-    int dequeue_eth(ethBufHandle_t* bufferHandle) {
-        if(bufferHandle->buffer == NULL)
+    int dequeue_eth() {
+        ethBufHandle_t bufferHandle = ampr_dequeueEth();
+        if(bufferHandle.buffer == NULL)
             return 0;
 
         my_Q++;
-        bufferHandle->packetNumber = my_Q;
+        bufferHandle.packetNumber = my_Q;
 
         int count;
         char diff;
@@ -1052,13 +1054,13 @@ char reseg;
 //        rexmitctr++;
 //        retran = 0;             // and retran is done
 //      }
-        if(bufferHandle->bytesUsed != 0 && bufferHandle->bytesUsed <= 1514) {     // must be a valid count
+        if(bufferHandle.bytesUsed != 0 && bufferHandle.bytesUsed <= 1514) {     // must be a valid count
 //                my_S = ebnumber[eoidx];
 //                send_epkt(&ebufs[eoidx][0], ebcount[eoidx]);
 //                count = ebcount[eoidx];
 
-            if (memcmp (bufferHandle->buffer, my_hwaddr,6) == 0) {
-                proc_eth(bufferHandle->buffer, bufferHandle->bytesUsed,1);
+            if (memcmp (bufferHandle.buffer, my_hwaddr,6) == 0) {
+                proc_eth(bufferHandle.buffer, bufferHandle.bytesUsed,1);
             } else {
 
 //                    GPIO_write(sigpin2,1);
@@ -1066,12 +1068,12 @@ char reseg;
 //                    xprint("S ");
 //                    xprint_char(my_S);
 //                    xprint("\n");
-                my_S = bufferHandle->packetNumber;
-                count = bufferHandle->bytesUsed;
-                send_epkt(bufferHandle->buffer,count);
-                test_epkt(bufferHandle->buffer,count);
-                if(bufferHandle->buffer[0] == 0xff) {
-                    memcpy(extrabuf,bufferHandle->buffer,bufferHandle->bytesUsed); // copy broadcast contents
+                my_S = bufferHandle.packetNumber;
+                count = bufferHandle.bytesUsed;
+                send_epkt(bufferHandle.buffer,count);
+                test_epkt(bufferHandle.buffer,count);
+                if(bufferHandle.buffer[0] == 0xff) {
+                    memcpy(extrabuf,bufferHandle.buffer,bufferHandle.bytesUsed); // copy broadcast contents
                     proc_eth(extrabuf, count,1);
                 }
             }
@@ -1079,7 +1081,7 @@ char reseg;
             xprint("QUe count\n");
             while (1);
         }
-        ethBuf_free(bufferHandle);
+        ethBuf_free(&bufferHandle);
         return(count);
     }
 

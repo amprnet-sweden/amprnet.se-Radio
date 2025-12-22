@@ -435,11 +435,11 @@ void mainThread(void *arg0)
     UART2_read(uart, &input, bytesToRead, NULL);
     while(1)
     {
-        amprEntry_t amprEntry = ampr_dequeue(100);
+        amprEntry_t amprEntry = ampr_dequeueRadio(100);
         loopctr++;
 
         /* Check if anything has been received via RF*/
-        if(amprEntry.type == AMPR_QUEUE_RADIO)      // if !=0 we have a rf packet
+        if(amprEntry.type == AMPR_QUEUE_RX_DATA)      // if !=0 we have a rf packet
         {
             /* Get current unhandled data entry */
             currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
@@ -460,11 +460,8 @@ void mainThread(void *arg0)
             //          go select who should process packet
             whatpacket(packet, (packetLength));
         }
-        else if(amprEntry.type == AMPR_QUEUE_ETH) {
-            dequeue_eth(&amprEntry.ethHandle);
-        }
-        else {
-            if(Timer_def == 0) {
+        else if(amprEntry.type == AMPR_QUEUE_TX_SLOT) {
+            if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                     if((uartlen() != 0)) {
                      current_defer = 80 + uartlen();
                      GPIO_write(sigpin2,1);
@@ -486,6 +483,7 @@ void mainThread(void *arg0)
                      }
                  }
             }
+            Timer_def = tdelay; // Reset defer timer count towards next TX slot regardless if anything was sent in this slot
         }
 
 #ifdef  HAM23CMRADIO
@@ -519,7 +517,7 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
     {
         timestamp = Runtime;
         GPIO_toggle(CONFIG_GPIO_RLED);
-        ampr_queueRadioFromISR();
+        ampr_queueRadioRXFromISR();
         Recd++;
     }
 }
@@ -542,7 +540,11 @@ void TimerCallbackFunction(void) {
     if(Timer0) Timer0--;    // decrement timer if counting
     if(Timer1) Timer1--;
     if(Timer_per) Timer_per--;
-    if(Timer_def) Timer_def--; 
+    if(Timer_def) {
+        Timer_def--;
+        if(Timer_def == 0)
+            ampr_queueRadioTXFromISR(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
+    }
     if(Timer_tdm) Timer_tdm--;
 }
 /* unsigned int eints = 0;
