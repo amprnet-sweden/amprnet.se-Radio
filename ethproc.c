@@ -7,10 +7,10 @@
 #include "eth_if.h"
 
 
-uint8_t my_ip[] = {44,5,5,20};
-//uint8_t my_ip[] = {192,168,1,10};
+uint8_t my_ip[] = {44,5,5,20};                  // program default, saveable
 uint8_t bcaddr[6] = {255,255,255,255,255,255};
 
+// calculate an internet checksum
 uint16_t checksum(uint16_t * addr, int len) {
      int count = len;
      register uint32_t sum = 0;
@@ -40,8 +40,60 @@ uint16_t checksum(uint16_t * addr, int len) {
      answer = ~sum;
 
      return (answer);
-   }
+}
+uint8_t idledata[64];
+void queue_idle_data(void) {
+    memcpy(idledata,last_radio,6);
+    memcpy(&idledata[6],my_hwaddr,6);
+    idledata[12] = 0x60;
+    idledata[13] = 0x06;
+    for(int i = 14;i<44;i++) {
+        idledata[i] = i;    // just fill payload
+    }
+/*    for(int i=0;i<64;i++) {
+           xprint_xchar(idledata[i]);
+           if(i%64 == 63) {
+              xprint("\n");
+           } else {
+              xprint(" ");
+           }
+      }
+      xprint("\n"); */
+    my_Q++;
+//      xprint_char(my_Q);
+//      xprint("\n");
+    queue_eth(idledata,58,my_Q);  // 44 + 14
+}
 
+void send_eth_frame(uint8_t * buffer, uint8_t * dst, uint16_t type, uint8_t * payload, uint32_t len, int port) {
+    memcpy(buffer, dst, 6);
+    memcpy(&buffer[6], my_hwaddr, 6);
+    buffer[12] = type >> 8;
+    buffer[13] = type & 0xff;
+/*    memcpy(&buffer[14], payload, len);
+    if (port == 1) {
+      if(EthEna) {
+        ethIf_send(buffer,len+14);
+      } */
+          for(int i=0;i<64;i++) {
+                 xprint_xchar(buffer[i]);
+                 if(i%64 == 63) {
+                    xprint("\n");
+                 } else {
+                    xprint(" ");
+                 }
+            }
+            xprint("\n");
+/*    }
+    if(port == 2) {
+//      xprint("reply to arp via 2 Q :");
+      my_Q++;
+//      xprint_char(my_Q);
+//      xprint("\n");
+      queue_eth(buffer,len+14,my_Q);
+    } */
+
+}
 
 void arp_reply(uint8_t * buf, int count,char port) {
 //    memcpy(&buf[32],my_hwaddr,6);  //set my hw addr
@@ -152,5 +204,10 @@ void proc_eth(uint8_t * buffer, int count,char port) {
 //	    xprint("\n");
 //	    return;
         }
+/*        if((buffer[12] == 0x60) && (buffer[13] == 0x06)) { // debug that we got idle packet to propagate a type 7 packet when wueue is empty
+            if(debug & 32) {
+              xprint("idle To me\n");
+            }
+        } */
 	}
 }

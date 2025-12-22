@@ -3,6 +3,7 @@
 
 #include "ethBuf.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 enum
 {
@@ -26,5 +27,7 @@ void ampr_queueRadioTXFromISR();
 amprEntry_t ampr_dequeueRadio(uint32_t timeout_ms);
 
 ethBufHandle_t ampr_dequeueEth();
+
+bool ampr_ethQueueEmpty();
 
 #endif /* AMPR_QUEUE_H_ */

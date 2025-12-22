@@ -60,6 +60,8 @@ extern int current_defer;
 extern char my_call[12];
 extern int parchange;
 extern int EthEna;
+extern uint8_t bcaddr[6];
+extern uint8_t last_radio[6];
 
 //extern RF_Handle rfHandle;
 //extern RF_CmdHandle rfPostHandle;
@@ -100,6 +102,8 @@ void smeter(signed char rssi);
 char init_ether(void);
 void proc_tdma_packet(uint8_t * buffer, char len);
 void proc_eth(uint8_t * buf,int count,char port);
+void queue_idle_data(void);
+
 void ampr_initQueue();
 void getMAC(uint8_t* mac);
 void xprint(char *buf);

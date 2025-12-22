@@ -51,6 +51,14 @@ ethBufHandle_t ampr_dequeueEth() {
     return buffer;
 }
 
+uint16_t ampr_ethQueueSize() {
+    return (uint16_t)uxQueueMessagesWaiting(ethQueue);
+}
+
+bool ampr_ethQueueEmpty() {
+    return ampr_ethQueueSize() == 0;
+}
+
 void ampr_queueRadioRXFromISR()
 {
     amprEntry_t entry;

@@ -1,3 +1,4 @@
+#include "lcd.h"
 char smeter_strings[12][18] = {
 			"-95>            \0",
 			"-90=>           \0",
