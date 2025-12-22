@@ -80,7 +80,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="T 0.95d";
+char version[] ="T 0.95e";
 //settings
 #if defined HAM23CMRADIO
 unsigned int freq = 1250;
@@ -1140,7 +1140,7 @@ char reseg;
             }
             quedepth++;         // adjust que depth, cause we add a apcket
           }
-          if (diff >= 5) xprint("Diff >= 5\n");
+//          if (diff >= 5) xprint("Diff >= 5\n");
           if (debug & 32) {
 /*            xprint("Ret his_R : ");
             xprint_char(his_R);
