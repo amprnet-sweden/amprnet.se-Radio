@@ -10,7 +10,7 @@
 #define FINFLAG 0x8
 #define ETHERNET 1
 #define LCD
-#define TSIZE 40
+#define TSIZE 60
 //#define SPISPEED 16000000
 
 #define PETH 0x00       // ethernet transport
@@ -22,18 +22,39 @@
 
 #define LOGPKT 5
 
+#define MASTER 1
+#define SLAVE  0
+#define MAXSLAVES 4 // number of slaves supported in one TDMA group
+#define TSYNC 1     // tsync sent out by Master
+#define TSYNCD 2    // provison to have a separate synch for Elected Master
 #define TTDMA 5
 #define TIDENT 6
 #define TCONN 7
-#define TACK 8
+#define TDISC 8
 #define TNACK 9
-#define TDMAPERIOD 2000
+#define TSNACK 10     //provision for nack table for multiple nodes
+#define TINVITE 11    // tell this is an invite slot
 
+//#define TDMAPERIOD 2000
+//#define TDMAPERIOD 500
+#define TDMAPERIOD 500
+#define TTABTTL 25
+#define CTABTTL 25
+#define TTABSIZE 4
+
+//#define CONSLOT 30
+#define INVSLOT 10       // the timer controlling invite timeout
+#define INVPERIOD 30    // invperiod is the number of tdma packets between invites
 #define CC1314R10
 
+extern int cstate;      // connection state
+extern int new_synch;
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
 extern uint8_t m1,m2,m3,m4,m5,m6;
 extern uint8_t my_Q;
+extern int role;
+extern int myslot;
+extern int debug;
 extern unsigned char myaddr;
 extern unsigned char peeraddr;
 extern unsigned char mode;
@@ -90,8 +111,12 @@ void queue_eth(uint8_t *buffer,int count,uint8_t pnum);
 int LCD_Begin(void);
 void LCD_Print(char * string);
 void SendText(uint8_t *buf, int count);
-void settdma(uint8_t *macaddr, uint8_t *call, int value, uint8_t rssi, uint32_t volt);
-void showtdma();
+void settdma(uint8_t *macaddr, uint8_t *call, uint8_t rssi, uint8_t volt);
+void showtdma(void);
+void showctab(void);
+void showtlist(void);
+void tdma_connect(void);
+void tdma_disconnect(void);
 void get_NVS(uint8_t * buf);
 void smeter(signed char rssi);
 char init_ether(void);

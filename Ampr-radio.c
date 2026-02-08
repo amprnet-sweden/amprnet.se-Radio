@@ -48,6 +48,8 @@ unsigned int deviation = 350;
 unsigned int bitrate = 0xC0000;
 unsigned int rxBw = 100;
 //
+int role = 0;           //node role, master, slave, autoconfigured master (to be defined)
+int myslot = 0;           //indicates transmit slot for this node
 int EthEna = 0;
 int LcdEna = 1;
 int debug = 0;
@@ -80,8 +82,9 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="T 0.95e";
+char version[] ="V 0.96";
 //settings
+int listener = 0;
 #if defined HAM23CMRADIO
 unsigned int freq = 1250;
 unsigned int freqold = 1250;
@@ -336,6 +339,9 @@ void parse_cmd(char *cline, int cnt) {
         xprint("Frequency : ");
         xprint_int(freq);
         xprint("\n");
+        xprint("Role : ");
+        xprint_int(role);
+        xprint("\n");
         xprint("Myaddr :  ");
         xprint_char(myaddr);
         xprint("\n");
@@ -407,8 +413,42 @@ void parse_cmd(char *cline, int cnt) {
         if(argc == 2) {
           retrena = atoi(argv[1]);
         }
-        xprint("Retransmit = ");
-        xprint_int(retrena);
+    } else if (strcmp(cline, ("master")) == 0) {
+        if(argc == 2) {
+          role = atoi(argv[1]);
+        }
+        xprint("Node role = ");
+        xprint_int(role);
+        xprint("\n");
+    } else if (strcmp(cline, ("conn")) == 0) {
+        if(role == 0) {
+            if (cstate == 0) {
+               cstate = 1;
+            } else {
+                xprint("Conn in process\n");
+            }
+        } else {
+            xprint("You're master\n");
+        }
+    } else if (strcmp(cline, ("disc")) == 0) {
+         if(role == 0) {
+            if (cstate =! 0) {
+               cstate = 0;
+               RX_OFF();
+               tdma_disconnect();
+               RX_ON();
+            } else {
+                xprint("Already disconnected\n");
+         }
+        } else {
+           xprint("You're master\n");
+        }
+    } else if (strcmp(cline, ("listen")) == 0) {
+        if(argc == 2) {
+          listener = atoi(argv[1]);
+        }
+        xprint("Listen mode = ");
+        xprint_int(listener);
         xprint("\n");
     } else if (strcmp(cline, ("beacon")) == 0) {
         Timer0 = 60000;
@@ -612,8 +652,14 @@ void parse_cmd(char *cline, int cnt) {
 //        sendnack(r); */
 //    } else if (strcmp(cline, ("heard")) == 0) { // obsoleted by tdt
 //        showheard();
+    } else if (strcmp(cline, ("sy")) == 0) {
+         new_synch = 1;
     } else if (strcmp(cline, ("tdt")) == 0) {
          showtdma();
+    } else if (strcmp(cline, ("ctab")) == 0) {
+         showctab();
+    } else if (strcmp(cline, ("tlst")) == 0) {
+         showtlist();
     } else if (strcmp(cline, ("tdma")) == 0) {
          if(argc >= 2)
              tdma_ena = atoi(argv[1]);
@@ -831,7 +877,7 @@ void parse_cmd(char *cline, int cnt) {
     }
 //    uint8_t Uartbuf[256];
     void dequeue_uart(void) {
-        if(oidx != iidx) {
+       if(oidx != iidx) {
 //          delay(20);
 //            my_S++;
 //            Uartbuf[0] = PTXT;
@@ -1140,8 +1186,8 @@ char reseg;
             }
             quedepth++;         // adjust que depth, cause we add a apcket
           }
-//          if (diff >= 5) xprint("Diff >= 5\n");
           if (debug & 32) {
+              if (diff >= 5) xprint("Diff >= 5\n");
 /*            xprint("Ret his_R : ");
             xprint_char(his_R);
             xprint(" ");
@@ -1170,6 +1216,7 @@ char reseg;
                     debug &= 0xffffffef;
                 } */
                 if (memcmp (&ebufs[eoidx][0], my_hwaddr,6) == 0) { // if this packet was for me
+//                    xprint("lan for me\n");
                     proc_eth(&ebufs[eoidx][0], ebcount[eoidx],1);
                 } else {    // was for soone else
 //                    GPIO_write(sigpin2,1);
@@ -1179,10 +1226,11 @@ char reseg;
 //                    xprint("\n");
                     my_S = ebnumber[eoidx];
                     send_epkt(&ebufs[eoidx][0], ebcount[eoidx]);
-//                    count = ebcount[eoidx];
-//                    test_epkt(&ebufs[eoidx][0],count);
+                    count = ebcount[eoidx];
+                    test_epkt(&ebufs[eoidx][0],count);
                     if(memcmp(&ebufs[eoidx][0],bcaddr,6) == 0) {          // if there was a broadcast
                        memcpy(extrabuf,&ebufs[eoidx][0],ebcount[eoidx]);  // copy broadcast contents
+//                       xprint("lan for bc\n");
                        proc_eth(extrabuf, count,1);                       // mark came from ethernet
                     }
                 }
@@ -1223,7 +1271,7 @@ void doretransmit(void) {
 
 //    xprint("doretransmit\n");
 //    if(retran != 0) {
-      if(debug & 1024)  {
+      if(debug & 256)  {
         wantednum++;    // wantednum up til now is his_R,
         xprint("Retran want: ");
         xprint_char(wantednum);
@@ -1303,7 +1351,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           segnum = 0; //start all radio packets with seg 0
 // check packet length
 //          RX_OFF();
-          send_tdma_packet();       // for now, just send before data
+//          send_tdma_packet();       // for now, just send before data
           while (reclen > chunk){
             int src = chunk * segnum;
 //         xprint_int(src);
@@ -1347,7 +1395,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
               dump_packet(radio_buff,chunk+1);
             } //debug & 2
           } //reclen > 0  #1
-          ackbuf[0] = 7 | PETH | FINFLAG;
+/*          ackbuf[0] = 7 | PETH | FINFLAG;
           ackbuf[1] = ACK;
           ackbuf[2] = segbits;
           ackbuf[3] = dseg;
@@ -1363,7 +1411,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
             xprint("\n");
           }
 //          GPIO_write(sigpin,1);
-          RF_XMIT(ackbuf, 21); // send a 21 byte buffer type 7
+          RF_XMIT(ackbuf, 21); // send a 21 byte buffer type 7 */
 //          GPIO_write(sigpin,0);
 //          RX_ON();
 //          GPIO_write(sigpin2,0);
@@ -1372,7 +1420,6 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
               xprint_xchar(ackbuf[11]);
               xprint("\n");
           } */
-          Timer_def = tdelay; //set defer timer
       }
 //   } // ethena = 1
 }
@@ -1404,41 +1451,30 @@ void check_ethernet() {
  * now dequeueu them one at the time
  */
    } // if ethena
-   if(Timer_def == 0) {
-//      if (EthEna == 1) {
-           if((uartlen() != 0) || (ethlen() != 0)) {
-            current_defer = 80 + uartlen() + ethlen(); //
-//            snapshot = Runtime;    //
-//             snapbytes = current_defer;
-//             snapshots[snapctr]
-            GPIO_write(sigpin2,1);
-            RX_OFF();
-//            send_tdma_packet();
-            dequeue_uart();
-//            if (EthEna == 1) {
-                dequeue_eth();
- //               xprint("Q-");
-//            }
-            RX_ON();
-            GPIO_write(sigpin2,0);
-
- //             Timer_def = 160; // why was this set???
-        } else {  // nothing to send, just send tdma
-            if(Timer_tdm == 0) {
-//                  xprint(".");
-//                GPIO_write(sigpin3,1);
-                RX_OFF();
-                send_tdma_packet();
-                RX_ON();
-//                GPIO_write(sigpin3,0);
-                Timer_tdm = TDMAPERIOD;
-                  Timer_def = tdelay; // do not transmit immediately
- //               Timer_def = 1; // do not transmit immediately
-            }
-          }
-       }
-//   }  //    deferal timer
+   if(role != 0) {  // only override slot restriction if I am master
+     if (Timer_tdm == 0) {
+       Timer_tdm = TDMAPERIOD;
+       myslot = 1;
+     }
+   }
+   if((myslot != 0) && (Timer_def == 0)) {     // if this is my slot in TDMA (timer def is only used for invite timeouts)
+       GPIO_write(sigpin2,1);
+//   if(Timer_def == 0) {
+     if((uartlen() != 0) || (ethlen() != 0)) {
+//       current_defer = 80 + uartlen() + ethlen(); //
+       RX_OFF();
+       dequeue_uart();
+       dequeue_eth();
+       RX_ON();
+     }
+     RX_OFF();
+     send_tdma_packet();    // ALWAYS SEND at least a tdma packet
+     RX_ON();
+     myslot = 0;            // we have sent all, not my slot any more
+     GPIO_write(sigpin2,0);
+   }
 }
+
 int dbgptr;
 /* process tail packet, and check that we agree on sequence, drop is segments dropped on receive */
 char rdrop = 0;
@@ -1595,10 +1631,8 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
     }
     /* if we got a 0 segment set up segbits, and clear dropped */
     if (seg == 0) {
-//        GPIO_write(sigpin3,1);
-//        segbits = 1;  // mark we got 0
         dropped = 0;
-    } // seg == 0
+    }
     // just debugging option
         if (seg == dropseg) {
             dropseg = 8;   //only drop once so  set it above segnr
@@ -1633,39 +1667,55 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
         // this copies the radio buffer into the ethernet packet , buffer[0] = ptype/seg, data begins in buffer[1]
     if ((buffer[0] & FINFLAG) == 0) {  //this is imm seg
             memcpy(&xmitbuffer[offset], &buffer[1], chunk); //copy data but not seg
-            if (expseg < 5)
+            if (expseg < 5)     // inc expected unless this is last
                    expseg++;
     } else {                        // this is final seg
             memcpy(&xmitbuffer[offset], &buffer[1], (count - 1));
-            expseg = 7; // this was last
+//            expseg = 7; // this was last (old code )
+            expseg = 0; // this was last
 //            segbits = 0;
     }
     // we have now processed the whole ethernet packet
     ecount = offset + count - 1; //offset should be computed from previous packet
       if(dropped == 0) {
         if (buffer[0] & FINFLAG) {
-          if ((debug & 0x1) != 0) {
-            xprint("Eth out : ");
-            xprint_int(ecount);
-            xprint(" segbits : ");
-            xprint_xchar(segbits);
-            xprint("\n");
-          }
-          ESbytes += ecount;
-          ESpkts++;
-          dump_packet(xmitbuffer,ecount);
-          expseg = 7;
+            if (memcmp (xmitbuffer, my_hwaddr,6) == 0) { // was packet for me??
+                proc_eth(xmitbuffer, ecount,2); // mark packet came from radio
+            } else {
+                if(memcmp(xmitbuffer,bcaddr,6) == 0) { // have we assembled a broadcast message?
+                   memcpy(extrabuf,xmitbuffer,ecount); // copy broadcast contents
+                   proc_eth(extrabuf, ecount,2);       // it might be for us to act on
+                }
+                if(EthEna) {
+                  w5500sendFrame(xmitbuffer,ecount);
+                }
+                test_epkt(xmitbuffer,ecount);
+                ecount = 0;
+            }
+            ESbytes += ecount;
+            ESpkts++;
+            if ((debug & 0x1) != 0) {
+              xprint("Eth out : ");
+              xprint_int(ecount);
+              xprint(" segbits : ");
+              xprint_xchar(segbits);
+              xprint("\n");
+            }
+            dump_packet(xmitbuffer,ecount);
+            dropped = 0;
+            expseg = 0;   // and begin from 0 again
+            segbits = 0;
         } // this was a final packet
       } else {      //dropped was 1 or more
         dropctr++;
       }
-  } else {    // we get here on only seg 6 & 7
+  }  else {    // we get here on only seg 6 & 7
 /*
  * we do not know if this is an ACK packet or a REX packet or a type 6 packet
  */
       if(seg == 7) {
 //        GPIO_write(sigpin3,0);
-        proc_type7(buffer, count, dropped);
+//        proc_type7(buffer, count, dropped);
         if(dropped != 0) {   // if send nack requested
           if(retrena)  { //if retransmit enabled
 
@@ -1707,6 +1757,19 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
   }
 }
 #endif  // ethernet
+void send_debug_packet(uint8_t *buf,unsigned char len) {
+    uint8_t debug_packet[300];
+    int length;
+    length = len;
+    memcpy(&debug_packet[0],&bcaddr,6);
+    memcpy(&debug_packet[6],&my_hwaddr,6);
+    debug_packet[12] = 0x60;
+    debug_packet[13] = 0x06;
+    debug_packet[14] = Runtime & 0xff;
+    debug_packet[15] = (Runtime >> 8) & 0xff;
+    memcpy(&debug_packet[16],buf,length);
+    w5500sendFrame(debug_packet,length + 16);
+}
 
 void whatpacket(uint8_t * buffer, char length) {
     uint8_t pktype;
@@ -1715,8 +1778,11 @@ void whatpacket(uint8_t * buffer, char length) {
     switch(pktype) {
     case PETH:
 //            GPIO_write(sigpin3,1);
-        send_ether(buffer,length);
-//            GPIO_write(sigpin3,0);
+        if(listener == 0)
+            send_ether(buffer,length);
+        else
+            send_debug_packet(buffer,length);
+        //            GPIO_write(sigpin3,0);
         break;
     case PTXT:  // this is a "uart" packet, send it out
         SendText(&buffer[1], length - 1);
@@ -1730,7 +1796,11 @@ void whatpacket(uint8_t * buffer, char length) {
         xprint("XXX pktype\n");
         break;
     case PTDMA:
-        proc_tdma_packet(buffer,length);
+        if(listener == 0)
+            proc_tdma_packet(buffer,length);
+        else
+            send_debug_packet(buffer,length);
+        //            GPIO_write(sigpin3,0);
         break;
     default:
 //        xprint("Bad pktype : ");

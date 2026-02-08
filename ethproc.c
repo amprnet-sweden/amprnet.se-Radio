@@ -41,6 +41,8 @@ uint16_t checksum(uint16_t * addr, int len) {
 
      return (answer);
 }
+
+/* make an idle frame that goes from this node to the last received frame MAC, just to cause a packet 7 to propagate my_R */
 uint8_t idledata[64];
 void queue_idle_data(void) {
     memcpy(idledata,last_radio,6);
@@ -50,21 +52,11 @@ void queue_idle_data(void) {
     for(int i = 14;i<44;i++) {
         idledata[i] = i;    // just fill payload
     }
-/*    for(int i=0;i<64;i++) {
-           xprint_xchar(idledata[i]);
-           if(i%64 == 63) {
-              xprint("\n");
-           } else {
-              xprint(" ");
-           }
-      }
-      xprint("\n"); */
     my_Q++;
-//      xprint_char(my_Q);
-//      xprint("\n");
     queue_eth(idledata,58,my_Q);  // 44 + 14
 }
 
+#ifdef grinx
 void send_eth_frame(uint8_t * buffer, uint8_t * dst, uint16_t type, uint8_t * payload, uint32_t len, int port) {
     memcpy(buffer, dst, 6);
     memcpy(&buffer[6], my_hwaddr, 6);
@@ -94,6 +86,7 @@ void send_eth_frame(uint8_t * buffer, uint8_t * dst, uint16_t type, uint8_t * pa
     } */
 
 }
+#endif
 
 void arp_reply(uint8_t * buf, int count,char port) {
 //    memcpy(&buf[32],my_hwaddr,6);  //set my hw addr
