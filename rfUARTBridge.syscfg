@@ -23,6 +23,7 @@ const GPIO6    = GPIO.addInstance();
 const GPIO7    = GPIO.addInstance();
 const GPIO8    = GPIO.addInstance();
 const GPIO9    = GPIO.addInstance();
+const GPIO19   = GPIO.addInstance();
 const I2C      = scripting.addModule("/ti/drivers/I2C", {}, false);
 const I2C1     = I2C.addInstance();
 const NVS      = scripting.addModule("/ti/drivers/NVS", {}, false);
@@ -98,6 +99,11 @@ GPIO8.gpioPin.$assign = "boosterpack.24";
 GPIO9.$name           = "sigpin3";
 GPIO9.mode            = "Output";
 GPIO9.gpioPin.$assign = "boosterpack.36";
+
+GPIO19.$name            = "EINT";
+GPIO19.pull             = "Pull Up";
+GPIO19.interruptTrigger = "Falling Edge";
+GPIO19.gpioPin.$assign  = "boosterpack.25";
 
 I2C1.$name              = "CONFIG_I2C_0";
 I2C1.i2c.sdaPin.$assign = "boosterpack.32";

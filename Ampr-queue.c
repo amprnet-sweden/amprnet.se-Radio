@@ -4,6 +4,7 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #include <queue.h>
+#include "Ampr-radio.h"
 
 // Number of radio RX packages, defined in NUM_DATA_ENTRIES in rfUartBridge.c
 #define RADIOCOUNT 16

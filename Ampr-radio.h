@@ -20,22 +20,45 @@
 
 #define PETH 0x00       // ethernet transport
 #define PTXT 0x10       // text or actually uint8_t over serial line
-#define PSER 0x30       //
+#define PSER 0x30
 #define PXXX 0x40
 #define PPTP 0x50
 #define PTDMA 0x80
 
 #define LOGPKT 5
-
+/* tdma definitions */
+#define MASTER 1
+#define SLAVE  0
+//
+#define MAXSLAVES 4 // number of slaves supported in one TDMA group
+#define TSYNC 1     // tsync sent out by Master
+#define TSYNCD 2    // provison to have a separate synch for Elected Master
 #define TTDMA 5
 #define TIDENT 6
 #define TCONN 7
-#define TACK 8
+#define TDISC 8
 #define TNACK 9
-#define TDMAPERIOD 2000
+#define TSNACK 10     //provision for nack table for multiple nodes
+#define TINVITE 11    // tell this is an invite slot
+
+//#define TDMAPERIOD 2000
+//#define TDMAPERIOD 500
+#define TDMAPERIOD 20
+#define TTABTTL 25
+#define CTABTTL 25
+#define TTABSIZE 4
+
+#define INVSLOT 2       // the timer controlling invite timeout
+#define INVPERIOD 10    // invperiod is the number of tdma packets between invites
+
 
 #define CC1314R10
 
+
+#define UBCOUNT 8
+#define EBCOUNT 20
+#define EOBCOUNT 20
+extern int role;
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
 extern uint8_t m1,m2,m3,m4,m5,m6;
 extern uint8_t my_Q;
@@ -46,7 +69,7 @@ extern unsigned int freq, freqold;
 extern char rssi;
 extern unsigned int Runtime,Recd,Sent,Bad;
 extern unsigned long RRbytes,RSbytes,ERbytes,ESbytes;
-extern unsigned long ERpkts,ESpkts,TSpkts,TRpkts;
+extern unsigned long RRpkts,RSpkts,ERpkts,ESpkts,TSpkts,TRpkts,ARPreq,ARPans;
 extern unsigned int freq, freqold;
 extern unsigned int rfcollision;
 extern int loopctr;
@@ -62,6 +85,21 @@ extern int parchange;
 extern int EthEna;
 extern uint8_t bcaddr[6];
 extern uint8_t last_radio[6];
+extern int debug,dropctr,retrena;
+extern int tdelay;
+extern int quedepth,rexmitctr;
+extern char dropseg;
+extern int quemax;
+extern int ebcount[];
+extern uint8_t ebnumber[];
+extern int eidx,oidx,iidx,oidx;
+extern unsigned long RRbytes,RSbytes,ERbytes,ESbytes,URbytes,USbytes;
+extern unsigned long USpkts;
+extern int ucount[UBCOUNT];
+extern uint8_t ubuf[UBCOUNT][300];
+extern int cstate;      // slave connection state
+extern int new_synch;   // tdma make master send new tdma list
+extern int myslot;
 
 //extern RF_Handle rfHandle;
 //extern RF_CmdHandle rfPostHandle;
@@ -95,7 +133,7 @@ void queue_eth(uint8_t *buffer,int count,uint8_t pnum);
 int LCD_Begin(void);
 void LCD_Print(char * string);
 void SendText(uint8_t *buf, int count);
-void settdma(uint8_t *macaddr, uint8_t *call, int value, uint8_t rssi, uint32_t volt);
+void settdma(uint8_t * macaddr, uint8_t * call, uint8_t rssi, uint8_t volt);
 void showtdma();
 void get_NVS(uint8_t * buf);
 void smeter(signed char rssi);
@@ -107,5 +145,5 @@ void queue_idle_data(void);
 void ampr_initQueue();
 void getMAC(uint8_t* mac);
 void xprint(char *buf);
-
+void dump_packet(uint8_t *buf,char blen);
 #endif // AMPR_RADIO_H

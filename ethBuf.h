@@ -6,9 +6,9 @@
 #define EBSIZE 1518 // TODO size of pktbuf, 4 bytes overhead?
 
 #ifdef CC1314R10
-#define EBCOUNT 30
+//#define EBCOUNT 30
 #else
-#define EBCOUNT 22
+//#define EBCOUNT 22
 #endif
 
 typedef struct ethBufHandle_s

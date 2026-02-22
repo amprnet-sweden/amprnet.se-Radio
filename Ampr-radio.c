@@ -59,6 +59,8 @@ unsigned int deviation = 350;
 unsigned int bitrate = 0xC0000;
 unsigned int rxBw = 100;
 //
+int role =0;        // node role, master, slave, autoconfig master (to be defined)
+int myslot;          // if this is 1 it is our time to send
 int EthEna = 0;
 int LcdEna = 1;
 int debug = 0;
@@ -76,23 +78,22 @@ int rexmitctr = 0;
 int rexmitOK = 0;
 int rexrqctr =0;
 char dseg;  // the first segment we detected as dropped
-//uint8_t pktnumS,pktnumR;    // pktnum sent over radio, received from radio
 uint8_t his_S, his_R, my_S, my_R, my_Q;
-#define Ackdel 2  // assume 20 mS acktime
+//#define Ackdel 2  // assume 20 mS acktime
 unsigned char Beseg = 0;
 unsigned char pktnum = 0;
 char beabuf[BEA_LENGTH];
+// command line variables
 static char cmdline[100];    // Nsize??
-//static char xx[20];
 int cmdptr = 0;             // pointer in string
 int cmdbytes = 0;              // nr of bytes accumulated
-//static char xy[20];
 uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="T 0.95e";
+char version[] ="X 2.0a";
 //settings
+int listener = 0;
 #if defined HAM23CMRADIO
 unsigned int freq = 1250;
 unsigned int freqold = 1250;
@@ -144,7 +145,6 @@ uart1 = UART2_open(CONFIG_UART2_1, &uartParams1);
 
 char init_ether() {
     bool stat = w5500begin(my_hwaddr);
-//            if((stat == true) && (link == true)) {
     if(stat == true)  {
             xprint("Ether initiated\n");
             EthEna = 1;
@@ -179,14 +179,6 @@ void parse_cmd(char *cline, int cnt) {
 //        xprint(tok);
         tok = strtok(0,s);  // continue from last pos
     }
-/*    for(int i =0; i<cnt+1; i++) {
-        xprint_xchar(cline[i]);
-        xprint(" ");
-        if(cline[i] == 0) break;
-    }
-    xprint("\n"); */
-    /* now, check for specific commands */
-
 
     if (strcmp(argv[0],("help")) == 0) {
           xprint("List of commands\n"
@@ -239,40 +231,6 @@ void parse_cmd(char *cline, int cnt) {
           }
         }
         xprint("\n");
-/*    } else if (strcmp(cline, ("myaddr")) == 0) {
-        xprint("My addr : ");
-        xprint_char(myaddr);
-        if (argc == 2) {
-            val=atoi(argv[1]);
-            if ((val < 1) || (val > 254)) {
-              xprint(" Illegal value  ");
-              xprint_int(val);
-//            xprint("\n");
-            } else {
-              myaddr = val;
-              xprint(" Setting myaddr to ");
-              xprint_char(myaddr);
-            }
-//            xprint("\n");
-        }
-        xprint("\n");
-    } else if (strcmp(cline, ("peeraddr")) == 0) {
-        xprint("Peer addr : ");
-        xprint_char(peeraddr);
-        if (argc == 2) {
-            val=atoi(argv[1]);
-            if ((val < 1) || (val > 254)) {
-              xprint(" Illegal value  ");
-              xprint_int(val);
-//            xprint("\n");
-            } else {
-              peeraddr = val;
-              xprint(" Setting peeraddr to ");
-              xprint_char(peeraddr);
-            }
-//            xprint("\n");
-        }
-        xprint("\n"); */
     } else if (strcmp(cline, ("mode")) == 0) {
         if(argc == 2) {
           mode = atoi(argv[1]);
@@ -319,7 +277,7 @@ void parse_cmd(char *cline, int cnt) {
             xprint_char(mode);
             xprint("\n");
           }
-    } else if (strcmp(cline, ("par")) == 0) {
+    } else if (strcmp(cline, ("par")) == 0) { // this is just to be able to test various parameter combinations, to be removed
         xprint("Changing parameters \n");
         parchange = 1; 
     } else if (strcmp(cline, ("rssi")) == 0) {
@@ -336,6 +294,13 @@ void parse_cmd(char *cline, int cnt) {
         xprint("\n");
         xprint("Frequency : ");
         xprint_int(freq);
+        xprint("\n");
+        xprint("Role : ");
+        if(role == 0) {
+            xprint("Slave");
+        } else {
+            xprint("Master");
+        }
         xprint("\n");
         xprint("Myaddr :  ");
         xprint_char(myaddr);
@@ -387,6 +352,7 @@ void parse_cmd(char *cline, int cnt) {
         for(int i = 0;i<4;i++) {
             buf[20+i] = my_ip[i];
         }
+        buf[24] = role;
         /* compute a checksum */
         csum = 0;
         for (int i=0; i<Nsize-1;i++) {
@@ -404,6 +370,41 @@ void parse_cmd(char *cline, int cnt) {
         xprint("Tdelay = ");
         xprint_int(tdelay);
         xprint("\n");
+    } else if (strcmp(cline, ("master")) == 0) {
+        if(argc == 2) {
+          role = atoi(argv[1]);
+        }
+        xprint("Node role = ");
+        xprint_int(role);
+        xprint("\n");
+    } else if (strcmp(cline, ("conn")) == 0) {
+        if(role == 0) {
+            if (cstate == 0) {
+               cstate = 1;
+            } else {
+                xprint("Conn in process\n");
+            }
+        } else {
+            xprint("You're master\n");
+        }
+    } else if (strcmp(cline, ("disc")) == 0) {
+         if(role == 0) {
+            if (cstate =! 0) {
+               cstate = 3;
+            } else {
+                xprint("Already disconnected\n");
+         }
+        } else {
+           xprint("You're master\n");
+        }
+    } else if (strcmp(cline, ("listen")) == 0) {
+        if(argc == 2) {
+          listener = atoi(argv[1]);
+        }
+        xprint("Listen mode = ");
+        xprint_int(listener);
+        xprint("\n");
+
     } else if (strcmp(cline, ("re")) == 0) {
         if(argc == 2) {
           retrena = atoi(argv[1]);
@@ -458,28 +459,6 @@ void parse_cmd(char *cline, int cnt) {
             xprint_int(dropseg);
             xprint("\n");
         }
-/*    } else if (strcmp(cline, ("ether")) == 0) {
-        if(argc == 2) {
-           if (atoi(argv[1]) == 0) {
-               w5500end();
-               EthEna = 0;
-               xprint("Ether disabled\n");
-           }
-        } else {    // only one arg
-        if(EthEna == 0) {
-            bool stat = w5500begin(my_hwaddr);
-//            if((stat == true) && (link == true)) {
-            if(stat == true)  {
-              xprint("Ether initiated\n");
-              EthEna = 1;
-            } else {
-                xprint("w5500 or wrong revision\n");
-//                EthEna = 2;
-            }
-
-        } else
-            xprint("Already enabled or broken\n");
-        } */
     } else if (strcmp(cline, ("link")) == 0) {
         char phy = getPHYCFGR();
         xprint("Link status ");
@@ -498,13 +477,6 @@ void parse_cmd(char *cline, int cnt) {
         } else {
             xprint("HDX ");
         }
-/*        if(phy & 1) {
-            xprint("UP ");
-        } else {
-            xprint("DOWN ");
-        } 
-        xprint("\n");
-        xprint_xchar(phy); */
         xprint("\n");
 
 #endif
@@ -514,16 +486,6 @@ void parse_cmd(char *cline, int cnt) {
         if(LcdEna == 0) {
         LCD_Print(version);
         delay(1);
-/*        LCD_Goto(1,2);
-        delay(1);
-        LCD_Print(&version);
-        delay(1);
-        LCD_Goto(1,3);
-        delay(1);
-        LCD_Print(&version);
-        LCD_Goto(1,4);
-        delay(1);
-        LCD_Print(&blocks); */
          } else {
             xprint("LCD not present\n");
         }
@@ -598,45 +560,21 @@ void parse_cmd(char *cline, int cnt) {
             xprint_char(debbuf[i][1]);
             xprint("\n");
         }
-/*    } else if (strcmp(cline, ("dq")) == 0) { // TODO implement with queue
-        for (int i = 0;i<EBCOUNT;i++) {
-            xprint_char(ebnumber[i]);
-            xprint(" ");
-            xprint_int(ebcount[i]);
-            xprint("\n");
-        }*/
-/*    } else if (strcmp(cline, ("sn")) == 0) {
-        char r;
-        if (argc == 2)
-            r = atoi(argv[1]);
-        my_R = r;
-//        sendnack(r); */
-//    } else if (strcmp(cline, ("heard")) == 0) { // obsoleted by tdt
-//        showheard();
+    } else if (strcmp(cline, ("sy")) == 0) {
+         new_synch = 1;
     } else if (strcmp(cline, ("tdt")) == 0) {
          showtdma();
+    } else if (strcmp(cline, ("ctab")) == 0) {
+         showctab();
+    } else if (strcmp(cline, ("tlst")) == 0) {
+         showtlist();
     } else if (strcmp(cline, ("tdma")) == 0) {
          if(argc >= 2)
              tdma_ena = atoi(argv[1]);
          xprint("tdma ");
          xprint_int(tdma_ena);
          xprint("\n");
-/*    } else if (strcmp(cline, ("ei")) == 0) {
-        // test to read and write int registers
-                      uint8_t sir = getSIR();
-                      xprint("SIR = ");
-                      xprint_xchar(sir);
-                      setSIMR(1);   // enable socket 0 mask reg
-                      uint8_t simr = getSIMR();
-                      xprint(" SIMR = ");
-                      xprint_xchar(simr);
-                      uint8_t ir = getSn_IR();
-                      xprint(" IR = ");
-                      xprint_xchar(ir);
-                      uint8_t imr = getSn_IMR();
-                      xprint(" IMR = ");
-                      xprint_xchar(imr);
-                      xprint("\n"); */
+
 
     } else if (strcmp(cline, ("mycall")) == 0) {
       if(argc >= 2) {
@@ -655,13 +593,6 @@ void parse_cmd(char *cline, int cnt) {
     } else if (strcmp(cline, ("tasks")) == 0) {
         char outbuf[200];
         char *op = outbuf;
-//        TaskStatus_t cmdtask;
-//        TaskStatus_t myDetails;
-//        void vTaskList( op );
-/*        UBaseType_t Kalle;
-        Kalle = uxTaskGetNumberOfTasks();
-        xprint_int(Kalle);
-        xprint(" tasks running \n"); */
         vTaskList( op);
         xprint("Name         State    Priority Stack   num\n");
         xprint(outbuf);
@@ -728,14 +659,11 @@ void parse_cmd(char *cline, int cnt) {
                 xprint_int(rxBw);
                 xprint("\n");
             }
-    } else if (strcmp(cline, ("send")) == 0) {
-//            void send_eth_frame(buffer, bcastaddr, 0x6006, "short message",13 , 1) {
     }  else {
           if (argc > 0) {
              xprint("Illegal command\n");
           }
     }
-//    xprint("\n");
 }
     int iidx,oidx;
 #define UBCOUNT 8
@@ -845,16 +773,9 @@ void parse_cmd(char *cline, int cnt) {
 //    uint8_t Uartbuf[256];
     void dequeue_uart(void) {
         if(oidx != iidx) {
-//          delay(20);
-//            my_S++;
-//            Uartbuf[0] = PTXT;
             USpkts++;
             USbytes += (ucount[oidx]-1); // size here includes pktype
             SendPacket(&ubuf[oidx][0],ucount[oidx]);
-//            dump_packet(&ubuf[oidx],ucount[oidx]);
-/*            xprint("Dequeue : ");
-            xprint_int(ucount[oidx]);
-            xprint("\n"); */
             if(++oidx >= 3) {
                 oidx = 0;
             }
@@ -889,7 +810,6 @@ void parse_cmd(char *cline, int cnt) {
                 if(Timer0 == 0) {
                     Timer0 = 60000;
                     Txcount--;
-//                    xprint("snd\n");
                 }
             }
             if(Becount) {
@@ -978,52 +898,6 @@ void xprint_schar(signed char x) {
     sprintf(outbuf,"%d",x);
     xprint(outbuf);
 }
-/* Decode Packet. If we have set BYTE_ADDR bit we have two bytes address field
- * . These are destination and source, and we check these against our own address
- * If the TYPE_BYTE bit is set in mode, we expect a byte explaining what is in the packet
- * The type byte is also a place for a segment counter (0-7) and a last segment bit.
- * This can allow us to transfer larger packets than 255 bytes, which is what the radio is set
- * up for in this Version. In this case the (larger) packet is segmented into maximum
- * 8 segments, and the last segment has the LAST_SEG bit set. Reassembly checks all
- * received buffers, and completes when the last segment is received.
- * THE FOLLOWING CODE IS WORK IN PROGRESS; AND NOT FINISHED
- */
-/* void decode_packet(char * buffer, uint8_t count) {
-    uint8_t sender_address;
-    uint8_t * bufp;
-    bufp = buffer;
-    if (mode & BYTE_ADDR) { //we are using byte addressing
-      if ((*bufp == myaddr) || (*bufp == 0xff)) {   // packet for me or for all
-          bufp++;
-          sender_address = *bufp++;
-      } else {
-          bufp++;
-          bufp++;
-      }
-    }
-    if (mode & TYPE_BYTE) { // we are using a type byte
-         switch (*bufp) {
-           case 0:
-             break;
-           case 1:
-             break;
-           case 4:
-              break;
-           default:
-           break;
-      }
-      bufp++;
-      }
-
-} */
-/*
-void log_from_queue(char * buffer, uint8_t count) {
-    xprint("Received : ");
-    xprint_int(count);
-    xprint(" Rssi ");
-    xprint_schar(rssi);
-    xprint("\n");
-} */
 void getMAC(uint8_t* mac) {
     uint64_t macAddrLsb = HWREG(FCFG1_BASE + FCFG1_O_MAC_15_4_0);
     uint64_t macAddrMsb = HWREG(FCFG1_BASE + FCFG1_O_MAC_15_4_1);
@@ -1102,13 +976,13 @@ char reseg;
       }
     }
     ackbits = 0;
-//    xprint("rexmit seg : ");
-//    xprint("\n");
 }
 
 
 // queue an ethernet packet. do not bother with overwrite
     void queue_eth(uint8_t *buffer,int count,uint8_t pnum) {
+
+//     quedepth++;
      if(count > 1514) {
          xprint("QUe ptr\n");
          while(1) {}
@@ -1163,6 +1037,7 @@ char reseg;
             rexmitctr++;
             retran = 0;             // and retran will be done done
         } // if retran
+//        if(myslot !=0) {
         if(!ampr_ethQueueEmpty()) {              // if queue not empty
             ethBufHandle_t bufferHandle = ampr_dequeueEth();
             if(bufferHandle.bytesUsed != 0) {     // must be a valid count
@@ -1200,6 +1075,7 @@ char reseg;
                 }
             } // if packet was empty
             ethBuf_free(&bufferHandle);
+// }
         } else {
           // we get here if queue empty
 /*          if(retran) {
@@ -1243,7 +1119,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           segnum = 0; //start all radio packets with seg 0
 // check packet length
           RX_OFF();
-          send_tdma_packet();       // for now, just send before data
+//          send_tdma_packet();       // for now, just send before data
           while (reclen > chunk){
             int src = chunk * segnum;
 //         xprint_int(src);
@@ -1268,7 +1144,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
               dump_packet(radio_buff,chunk+1);
             } //debug & 2
             segnum++;
-          } //while
+          } //while reclen > chunk
           if (reclen > 0) { // #1 if after sending chunks, we still have data
             int src = chunk * segnum;
             radio_buff[0] = segnum | PETH | FINFLAG;
@@ -1287,7 +1163,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
               dump_packet(radio_buff,chunk+1);
             } //debug & 2
           } //reclen > 0  #1
-          ackbuf[0] = 7 | PETH | FINFLAG;
+/*          ackbuf[0] = 7 | PETH | FINFLAG;
           ackbuf[1] = ACK;
           ackbuf[2] = segbits;
           ackbuf[3] = dseg;
@@ -1312,7 +1188,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
               xprint_xchar(ackbuf[11]);
               xprint("\n");
           } */
-          Timer_def = tdelay; //set defer timer
+//          Timer_def = tdelay; //set defer timer
       }
       RX_ON();
 //   } // ethena = 1
@@ -1404,49 +1280,6 @@ void proc_type7(uint8_t *buffer, int len, char drop) {
     }
 }
 // char old_R;
-/*
-void sendnack(char dseg) { // send a status telling we lost x segments starting w dseg
-    if(old_R != my_R) {
-      old_R = my_R;     // enabled 250211 GW
-      my_S++;
-      ackbuf[0] = PETH | 7 | FINFLAG;
-      ackbuf[1] = REX;
-      ackbuf[2] = segbits;
-      ackbuf[3] = dseg;
-      ackbuf[4] = my_R;
-      ackbuf[5] = my_S;
-      memcpy(&ackbuf[6],my_hwaddr,6);    //mac id of packet
-//      GPIO_write(sigpin,1);
-      SendPacket(ackbuf,20);
-//      GPIO_write(sigpin,0);
-//      rexrqctr++;
-      if(debug & 4) {
-        xprint("S REX REQ pkt ");
-        xprint_char(my_R);
-        xprint("\n");
-      }
-    }
-}
-void sendack(char dseg) { // send a status telling we lost x segments starting w dseg
-//      my_S++;
-      ackbuf[0] = PETH | 7 | FINFLAG;
-      ackbuf[1] = ACK;
-      ackbuf[2] = 0;        //debug 22-feb-2025 GW
-      ackbuf[3] = 0;
-      ackbuf[4] = my_R;
-      ackbuf[5] = my_S;
-      memcpy(&ackbuf[6],my_hwaddr,6);    //mac id of packet
-//      GPIO_write(sigpin,1);
-      SendPacket(ackbuf,20);
-//      GPIO_write(sigpin,0);
-//      rexrqctr++;
-      if(debug & 4) {
-        xprint("S ACK pkt ");
-        xprint_char(my_R);
-        xprint("\n");
-      }
-}
-*/
 
 uint8_t xmitbuffer[1514];
 int ecount;

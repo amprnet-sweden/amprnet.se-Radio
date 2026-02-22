@@ -30,7 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Copyright to the modifications by Gullik Webjörn, SM4FBD */
+/* Copyright to the modifications by Gullik Webjörn, SM4FBD, Emma Sviestins, SA0EMY */
 
 /***** Includes *****/
 
@@ -121,8 +121,8 @@ volatile uint8_t packetRxCb;
 volatile uint16_t bytesReadCount;
 unsigned int Runtime;
 unsigned int Timer_per = 200; //periodeic timer, 20000 * 10 uS = 200 mS
+unsigned int Timer_tdm = 20;  // tdma master timer, set to a low value initially so that master starts quickly
 unsigned int Timer_def = 1;  // defer timer *** problem, should be possible to set .1 mS
-unsigned int Timer_tdm = 1000; // tdma timer
 unsigned int Timer0 = 500;
 unsigned int Timer1 = 0;
 extern unsigned int deviation;
@@ -479,17 +479,25 @@ void mainThread(void *arg0)
             //          go select who should process packet
             whatpacket(packet, (packetLength));
         }
-        else if(amprEntry.type == AMPR_QUEUE_TX_SLOT) {
-            if(!dequeue_eth()) { // Send Ethernet packet if any in queue
+        if(role !=0) {
+            if(Timer_tdm == 0) {
+                Timer_tdm = TDMAPERIOD;
+                myslot = 1;
+            }
+        }
+        else if((myslot != 0) && (Timer_def == 0)) {
+
+            if((amprEntry.type == AMPR_QUEUE_TX_SLOT)){ // if must be my slot, and we are not deferin invite(master)
+              if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                     if((uartlen() != 0)) {
-                     current_defer = 80 + uartlen();
+//                     current_defer = 80 + uartlen();
                      GPIO_write(sigpin2,1);
                      RX_OFF();
                      dequeue_uart();
                      RX_ON();
                      GPIO_write(sigpin2,0);
                  } else {  // nothing to send, just send tdma
-                     if(Timer_tdm == 0) {
+/*                     if(Timer_tdm == 0) {
          //                  xprint(".");
          //                GPIO_write(sigpin3,1);
                          RX_OFF();
@@ -497,12 +505,16 @@ void mainThread(void *arg0)
                          RX_ON();
          //                GPIO_write(sigpin3,0);
                          Timer_tdm = TDMAPERIOD;
-                           Timer_def = tdelay; // do not transmit immediately
+//                           Timer_def = tdelay; // do not transmit immediately
           //               Timer_def = 1; // do not transmit immediately
-                     }
+                     } */
+                     Timer_def = 1;
                  }
             }
-            Timer_def = tdelay; // Reset defer timer count towards next TX slot regardless if anything was sent in this slot
+           }
+           RX_OFF();
+           send_tdma_packet();
+           RX_ON();
         }
 
 #ifdef  HAM23CMRADIO
@@ -563,6 +575,7 @@ void TimerCallbackFunction(void) {
     if(Timer0) Timer0--;    // decrement timer if counting
     if(Timer1) Timer1--;
     if(Timer_per) Timer_per--;
+    if(Timer_tdm) Timer_tdm--;
     if(Timer_def) {
         Timer_def--;
         if(Timer_def == 0)
