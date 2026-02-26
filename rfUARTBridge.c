@@ -478,8 +478,37 @@ void mainThread(void *arg0)
 
             //          go select who should process packet
             whatpacket(packet, (packetLength));
-        }
-#ifdef HAM23CMRADIOX
+
+            // If it was a TDMA packet and it is time for our slot now, send it
+            if(myslot == 1)
+            {
+                // Send Ethernet packet if any
+                if(!dequeue_eth()) { // Send Ethernet packet if any in queue
+                    if((uartlen() != 0)) {
+                          current_defer = 80 + uartlen();
+                          GPIO_write(sigpin2,1);
+                          RX_OFF();
+                          dequeue_uart();
+                          RX_ON();
+                          GPIO_write(sigpin2,0);
+                      }
+                }
+                // Send TDMA (whether or not we sent an Ethernet packet)
+                 RX_OFF();
+                 send_tdma_packet();
+                 RX_ON();
+
+                 if(role == MASTER)
+                 {
+                     // Reset the TDMA cycle timer.
+                     // Note: This is not enough if a TX_SLOT event has already been queued.
+                     // TODO: Keep track of ongoing and finished cycles.
+                     Timer_tdm = TDMAPERIOD;
+                 }
+                 myslot = 0;
+            }
+        } // If radio RX received
+
         /* myslot controls transmission and is detected by a slave seeing a tdma packet with the mac address before him in the tlst
 
         a master knows the address of the last slave, since he detected that while traversing the ctab it was the last entry he added.
@@ -496,63 +525,38 @@ void mainThread(void *arg0)
 
         transmssion where there is no previous cycle going. This is only "cold start" or "no slaves" detection */
 
-
-        if(role !=0) {
-            if(Timer_tdm == 0) {            // Timer_tdm is also set in tdma packet processing
-                Timer_tdm = TDMAPERIOD;
-                myslot = 1;
-            }
-        }
-        if(myslot == 1) {
-//        else if((myslot != 0) && (Timer_def == 0)) { // if must be my slot, and we are not deferin invite(master)
-            if((amprEntry.type == AMPR_QUEUE_TX_SLOT)){
-              if(!dequeue_eth()) { // Send Ethernet packet if any in queue
-                    if((uartlen() != 0)) {
-//                     current_defer = 80 + uartlen();
-                     GPIO_write(sigpin2,1);
-                     RX_OFF();
-                     dequeue_uart();
-                     RX_ON();
-                     GPIO_write(sigpin2,0);
-                 } else {  // nothing to send, just send tdma
-                     Timer_def = 5;
-//                     ampr_queueRadioTXFromISR(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
-                 }
-            }
-           }
-           RX_OFF();
-           send_tdma_packet();
-           RX_ON();
-        }
-#else
-        else if(amprEntry.type == AMPR_QUEUE_TX_SLOT) {
+        // Only the master uses the TX_SLOT event which is triggered by a timer.
+        // The event is used to start a new TDMA cycle if the current one stalled
+        // due to a slave not sending a TDMA message in its slot.
+        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT)
+        {
+            // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
-                    if((uartlen() != 0)) {
-                     current_defer = 80 + uartlen();
-                     GPIO_write(sigpin2,1);
-                     RX_OFF();
-                     dequeue_uart();
-                     RX_ON();
-                     GPIO_write(sigpin2,0);
-                 } else {  // nothing to send, just send tdma
-                     if(Timer_tdm == 0) {
-         //                  xprint(".");
-         //                GPIO_write(sigpin3,1);
-                         RX_OFF();
-                         send_tdma_packet();
-                         RX_ON();
-         //                GPIO_write(sigpin3,0);
-                         Timer_tdm = TDMAPERIOD;
-                           Timer_def = tdelay; // do not transmit immediately
-          //               Timer_def = 1; // do not transmit immediately
-                     }
-                 }
+                if((uartlen() != 0)) {
+                      current_defer = 80 + uartlen();
+                      GPIO_write(sigpin2,1);
+                      RX_OFF();
+                      dequeue_uart();
+                      RX_ON();
+                      GPIO_write(sigpin2,0);
+                  }
             }
-            Timer_def = tdelay; // Reset defer timer count towards next TX slot regardless if anything was sent in this slot
-        }
+            // Send TDMA (whether or not we sent an Ethernet packet)
+             RX_OFF();
+             send_tdma_packet();
+             RX_ON();
+
+             if(role == MASTER)
+             {
+                 // Reset the TDMA cycle timer.
+                 // Note: This is not enough if a TX_SLOT event has already been queued.
+                 // TODO: Keep track of ongoing and finished cycles.
+                 Timer_tdm = TDMAPERIOD;
+             }
+             myslot = 0;
+        } // TX_SLOT
 
 
-#endif
 #ifdef  HAM23CMRADIO
      if(parchange != 0) {
           RX_OFF();       // RX_OFF executes RF_cancelCmd(rfHandle, rfPostHandle, 1);
@@ -611,13 +615,11 @@ void TimerCallbackFunction(void) {
     if(Timer0) Timer0--;    // decrement timer if counting
     if(Timer1) Timer1--;
     if(Timer_per) Timer_per--;
-    if(Timer_tdm) Timer_tdm--;
-    if(Timer_def) {
-        Timer_def--;
-        if(Timer_def == 0)
+    if(Timer_tdm) {
+        Timer_tdm--;
+        if(Timer_tdm == 0)
             ampr_queueRadioTXFromISR(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
     }
-    if(Timer_tdm) Timer_tdm--;
 }
 /* unsigned int eints = 0;
 uint8_t pktbuf1[1514];
