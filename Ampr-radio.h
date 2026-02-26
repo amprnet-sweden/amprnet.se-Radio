@@ -56,7 +56,7 @@
 
 
 #define UBCOUNT 8
-#define EBCOUNT 20
+#define EBCOUNT 30      // number of buffers in queue
 #define EOBCOUNT 20
 extern int role;
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
@@ -100,6 +100,7 @@ extern uint8_t ubuf[UBCOUNT][300];
 extern int cstate;      // slave connection state
 extern int new_synch;   // tdma make master send new tdma list
 extern int myslot;
+extern uint16_t droppedEthPackets, droppedRadioPackets;
 
 //extern RF_Handle rfHandle;
 //extern RF_CmdHandle rfPostHandle;

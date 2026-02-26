@@ -479,15 +479,33 @@ void mainThread(void *arg0)
             //          go select who should process packet
             whatpacket(packet, (packetLength));
         }
+#ifdef HAM23CMRADIO
+        /* myslot controls transmission and is detected by a slave seeing a tdma packet with the mac address before him in the tlst
+
+        a master knows the address of the last slave, since he detected that while traversing the ctab it was the last entry he added.
+
+        so, the cycle is 1:st slave, 2:nd slave ....last slave, master , 1:st slave..... There are no defers within the cycle, unless the master
+
+        sends an invite. In that case he uses the defer timer, to set a limit to the wait for a connect. If a connect arrives at the master,
+
+        he will enter the node in ctab, and he will cancel the timer_def, not to wait unnessecarily. Slaves advance their comparison
+
+        on all packets except invite. After detecting a connect packet, the master will set his myslot variable, and will
+
+        send a synch as his normal tdma packet, with the new list.  To get the whole thing going the Timer_tdm is used to force a
+
+        transmssion where there is no previous cycle going. This is only "cold start" or "no slaves" detection */
+
+
         if(role !=0) {
-            if(Timer_tdm == 0) {
+            if(Timer_tdm == 0) {            // Timer_tdm is also set in tdma packet processing
                 Timer_tdm = TDMAPERIOD;
                 myslot = 1;
             }
         }
-        else if((myslot != 0) && (Timer_def == 0)) {
-
-            if((amprEntry.type == AMPR_QUEUE_TX_SLOT)){ // if must be my slot, and we are not deferin invite(master)
+        if(myslot == 1) {
+//        else if((myslot != 0) && (Timer_def == 0)) { // if must be my slot, and we are not deferin invite(master)
+            if((amprEntry.type == AMPR_QUEUE_TX_SLOT)){
               if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                     if((uartlen() != 0)) {
 //                     current_defer = 80 + uartlen();
@@ -497,17 +515,6 @@ void mainThread(void *arg0)
                      RX_ON();
                      GPIO_write(sigpin2,0);
                  } else {  // nothing to send, just send tdma
-/*                     if(Timer_tdm == 0) {
-         //                  xprint(".");
-         //                GPIO_write(sigpin3,1);
-                         RX_OFF();
-                         send_tdma_packet();
-                         RX_ON();
-         //                GPIO_write(sigpin3,0);
-                         Timer_tdm = TDMAPERIOD;
-//                           Timer_def = tdelay; // do not transmit immediately
-          //               Timer_def = 1; // do not transmit immediately
-                     } */
                      Timer_def = 1;
                  }
             }
@@ -516,7 +523,35 @@ void mainThread(void *arg0)
            send_tdma_packet();
            RX_ON();
         }
+#else
+        else if(amprEntry.type == AMPR_QUEUE_TX_SLOT) {
+            if(!dequeue_eth()) { // Send Ethernet packet if any in queue
+                    if((uartlen() != 0)) {
+                     current_defer = 80 + uartlen();
+                     GPIO_write(sigpin2,1);
+                     RX_OFF();
+                     dequeue_uart();
+                     RX_ON();
+                     GPIO_write(sigpin2,0);
+                 } else {  // nothing to send, just send tdma
+                     if(Timer_tdm == 0) {
+         //                  xprint(".");
+         //                GPIO_write(sigpin3,1);
+                         RX_OFF();
+                         send_tdma_packet();
+                         RX_ON();
+         //                GPIO_write(sigpin3,0);
+                         Timer_tdm = TDMAPERIOD;
+                           Timer_def = tdelay; // do not transmit immediately
+          //               Timer_def = 1; // do not transmit immediately
+                     }
+                 }
+            }
+            Timer_def = tdelay; // Reset defer timer count towards next TX slot regardless if anything was sent in this slot
+        }
 
+
+#endif
 #ifdef  HAM23CMRADIO
      if(parchange != 0) {
           RX_OFF();       // RX_OFF executes RF_cancelCmd(rfHandle, rfPostHandle, 1);

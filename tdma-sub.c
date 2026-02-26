@@ -13,7 +13,7 @@
 struct tdmatable ttab[TTABSIZE];
 struct conntable ctab[MAXSLAVES];
 struct tdmalist  tlist[MAXSLAVES+1];    // latest tdma order, including master
-int cstate = 1;                         // cstate 1 auto slave and connect
+int cstate = 0;                         // cstate 1 auto slave and connect
 int myidx = 0;                          // my index into tdmalist
 uint8_t lastslave[6];
 

@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0a";
+char version[] ="X 2.0b";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -389,7 +389,7 @@ void parse_cmd(char *cline, int cnt) {
         }
     } else if (strcmp(cline, ("disc")) == 0) {
          if(role == 0) {
-            if (cstate =! 0) {
+            if (cstate != 0) {
                cstate = 3;
             } else {
                 xprint("Already disconnected\n");
@@ -547,6 +547,13 @@ void parse_cmd(char *cline, int cnt) {
         xprint("Que max ");
         xprint_int(quemax);
         xprint("\n");
+        xprint(" Internal dropped packets Ether Radio\n");
+        xprint_int(droppedEthPackets);
+        xprint("      ");
+        xprint_int(droppedRadioPackets);
+        xprint("\n");
+
+
 /*        xprint("Eth ints ");
         xprint_int(eints);
         xprint("\n"); */
@@ -1344,7 +1351,8 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
                    expseg++;
     } else {                        // this is final seg
             memcpy(&xmitbuffer[offset], &buffer[1], (count - 1));
-            expseg = 7; // this was last
+//            expseg = 7; // this was last old code wanted packet 7
+              expseg = 0; //
 //            segbits = 0;
     }
     // we have now processed the whole ethernet packet
@@ -1358,14 +1366,28 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
             xprint_xchar(segbits);
             xprint("\n");
           }
+          if (memcmp (xmitbuffer, my_hwaddr,6) == 0) { // was packet for me??
+              proc_eth(xmitbuffer, ecount,2); // mark packet came from radio
+          } else {
+              if(memcmp(xmitbuffer,bcaddr,6) == 0) { // have we assembled a broadcast message?
+                 memcpy(extrabuf,xmitbuffer,ecount); // copy broadcast contents
+                 proc_eth(extrabuf, ecount,2);       // it might be for us to act on
+              }
+              if(EthEna) {
+                ethIf_send(xmitbuffer,ecount);
+              }
+              test_epkt(xmitbuffer,ecount);
+          }
           ESbytes += ecount;
           ESpkts++;
           dump_packet(xmitbuffer,ecount);
-          expseg = 7;
         } // this was a final packet
       } else {      //dropped was 1 or more
         dropctr++;
-      }
+      }     // if dropped == 0
+      expseg = 0;
+      ecount = 0;
+      segbits = 0;
   } else {    // we get here on only seg 6 & 7
 /*
  * we do not know if this is an ACK packet or a REX packet or a type 6 packet
