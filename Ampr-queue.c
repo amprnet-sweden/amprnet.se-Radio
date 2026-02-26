@@ -31,6 +31,9 @@ void ampr_queueEth(ethBufHandle_t* bufferHandle) {
     if(!xQueueSend(ethQueue, bufferHandle, 0)) {
         ethBuf_free(bufferHandle);
         droppedEthPackets++;
+        xprint("dropped\n");
+    } else {
+//    xprint("queued\n");
     }
 }
 
@@ -49,6 +52,7 @@ ethBufHandle_t ampr_dequeueEth() {
                              .packetNumber = 0
     };
     xQueueReceive(ethQueue, &buffer, 0);
+//    xprint("dequeued\n");
     return buffer;
 }
 

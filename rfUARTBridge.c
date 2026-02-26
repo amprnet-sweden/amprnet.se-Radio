@@ -479,7 +479,7 @@ void mainThread(void *arg0)
             //          go select who should process packet
             whatpacket(packet, (packetLength));
         }
-#ifdef HAM23CMRADIO
+#ifdef HAM23CMRADIOX
         /* myslot controls transmission and is detected by a slave seeing a tdma packet with the mac address before him in the tlst
 
         a master knows the address of the last slave, since he detected that while traversing the ctab it was the last entry he added.
@@ -515,7 +515,8 @@ void mainThread(void *arg0)
                      RX_ON();
                      GPIO_write(sigpin2,0);
                  } else {  // nothing to send, just send tdma
-                     Timer_def = 1;
+                     Timer_def = 5;
+//                     ampr_queueRadioTXFromISR(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
                  }
             }
            }

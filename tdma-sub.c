@@ -197,7 +197,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           break;
           case TCONN: {
               if(role != 0) {   // we are master
-                Timer_def = 0;
+//                Timer_def = 0;
                 enternew = 1;   // assume it is not there
                 for(i=0;i < MAXSLAVES;i++) {      //check if already in ctab
                     int found = memcmp(&ctab[i].macaddr,&buffer[2],6);          // is this connect known?
@@ -403,7 +403,7 @@ void send_tdma_packet(void) {
 //           GPIO_write(sigpin,1);
            invctr = INVPERIOD;         // set up the invite period
            tbuffer[1] = TINVITE;       //
-           Timer_def = INVSLOT;
+//           Timer_def = INVSLOT;
          } else {
              invctr--;
              if(new_synch == 1) {       // if it is time to send a new TDMA list

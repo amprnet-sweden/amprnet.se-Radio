@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-
+int ebufsused;
 
 void ampr_queue(ethBufHandle_t* bufferHandle);
 extern int EthEna;
@@ -26,13 +26,17 @@ void ethIf_send(uint8_t* buffer, uint16_t size)
 {
     ethBufHandle_t handle;
     ethBuf_get(&handle);
-    if(handle.buffer == NULL)
+    if(handle.buffer == NULL) {
         return; // No free buffer, drop packet
+    }
+    ebufsused++;
     memcpy(handle.buffer, buffer, size);
     handle.bytesUsed = size;
     // Queue packet or drop it if the send queue is full
-    if(!xQueueSend(sendQueue, &handle, 0))
+    if(!xQueueSend(sendQueue, &handle, 0)) {
         ethBuf_free(&handle);
+        ebufsused--;
+    }
 }
 
 void vEthIf_task(void* pvParameters)
@@ -73,9 +77,9 @@ void vEthIf_task(void* pvParameters)
 
         // First get a buffer to put the data in
         ethBuf_get(&buffer);
-        if(buffer.buffer == NULL) // No available buffer
+        if(buffer.buffer == NULL) {// No available buffer
             continue;
-
+        }
         int reclen = w5500readFrame(buffer.buffer, EBSIZE);
         if(reclen > 0) {
             buffer.bytesUsed = reclen;

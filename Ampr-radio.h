@@ -56,7 +56,7 @@
 
 
 #define UBCOUNT 8
-#define EBCOUNT 30      // number of buffers in queue
+#define EBCOUNT 40      // number of buffers in queue
 #define EOBCOUNT 20
 extern int role;
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
@@ -101,6 +101,7 @@ extern int cstate;      // slave connection state
 extern int new_synch;   // tdma make master send new tdma list
 extern int myslot;
 extern uint16_t droppedEthPackets, droppedRadioPackets;
+extern int ebufsused;
 
 //extern RF_Handle rfHandle;
 //extern RF_CmdHandle rfPostHandle;
@@ -136,6 +137,8 @@ void LCD_Print(char * string);
 void SendText(uint8_t *buf, int count);
 void settdma(uint8_t * macaddr, uint8_t * call, uint8_t rssi, uint8_t volt);
 void showtdma();
+void showctab(void);
+void showtlist(void);
 void get_NVS(uint8_t * buf);
 void smeter(signed char rssi);
 char init_ether(void);
@@ -147,4 +150,5 @@ void ampr_initQueue();
 void getMAC(uint8_t* mac);
 void xprint(char *buf);
 void dump_packet(uint8_t *buf,char blen);
+int dequeue_eth(void);
 #endif // AMPR_RADIO_H

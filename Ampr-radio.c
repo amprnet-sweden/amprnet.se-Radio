@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0b";
+char version[] ="X 2.0c";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -547,10 +547,13 @@ void parse_cmd(char *cline, int cnt) {
         xprint("Que max ");
         xprint_int(quemax);
         xprint("\n");
+// to debug ebufs
         xprint(" Internal dropped packets Ether Radio\n");
         xprint_int(droppedEthPackets);
         xprint("      ");
         xprint_int(droppedRadioPackets);
+        xprint("   Get - Free = used      ");
+        xprint_int(ebufsused);
         xprint("\n");
 
 
@@ -999,6 +1002,7 @@ char reseg;
      ethBuf_get(&handle);
      if(handle.buffer == NULL)
          return; // No free buffer, drop packet
+     ebufsused++;
      memcpy(handle.buffer, buffer, count);
      handle.bytesUsed = count;
      handle.packetNumber = pnum;
@@ -1011,7 +1015,7 @@ char reseg;
 
     int dequeue_eth(void) {
         int count;
-        char diff;
+//        char diff;
         count = 0;
         if(retran) {               // if peer did not ack my last sent, back up index one packet
 //          xprint("ReTX last OK ");
@@ -1021,7 +1025,7 @@ char reseg;
 //             send_eth_frame(uint8_t * buffer, uint8_t * dst, uint16_t type, uint8_t * payload, uint32_t len, int port) {
                 xprint("Packet needed\n");
             }
-            diff = my_S - his_R;
+//            diff = my_S - his_R;
 /*          if(debug & 32) {
                 xprint("Re Diff : ");
                 xprint_char(diff);
@@ -1052,24 +1056,21 @@ char reseg;
 //                    my_S = bufferHandle.packetNumber;
 //                    send_epkt(bufferHandle.buffer, bufferHandle.bytesUsed);
                     count = bufferHandle.bytesUsed;
-/* here we test if incoming packet is for us */
-/*                   if(bufferHandle.buffer[12] == 0x60) {
-                        xprint("To me\n");
-                        debug |= 16;
-                        dump_packet(bufferHandle.buffer,bufferHandle.bytesUsed);
-                        debug &= 0xffffffef;
-                    } */
+                    // here we test if incoming packet is for us
+//                    xprint("Got ");
+//                    xprint_int(count);
+//                    xprint("\n");
                     if (memcmp (bufferHandle.buffer, my_hwaddr,6) == 0) { // if this packet was for me
                         proc_eth(bufferHandle.buffer, bufferHandle.bytesUsed,1);
-                    } else {    // was for soone else
+                    } else {    // it was for someone else
 //                        GPIO_write(sigpin2,1);
 //                        GPIO_toggle(sigpin2);a
 //                        xprint("S ");
 //                        xprint_char(my_S);
 //                        xprint("\n");
                         my_S = bufferHandle.packetNumber;
-                        send_epkt(bufferHandle.buffer,count);
-//                        count = bufferHandle.bytesUsed;
+                        send_epkt(bufferHandle.buffer,bufferHandle.bytesUsed);
+                        count = bufferHandle.bytesUsed;
 //                        test_epkt(bufferHandle.buffer,count);
                         if(memcmp(bufferHandle.buffer,bcaddr,6) == 0) {                  // if there was a broadcast
                             memcpy(extrabuf,bufferHandle.buffer,bufferHandle.bytesUsed); // copy broadcast contents
@@ -1082,6 +1083,7 @@ char reseg;
                 }
             } // if packet was empty
             ethBuf_free(&bufferHandle);
+            ebufsused--;
 // }
         } else {
           // we get here if queue empty
@@ -1190,7 +1192,7 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
 //          GPIO_write(sigpin,0);
 //          RX_ON();
 //          GPIO_write(sigpin2,0);
-/*         if(ackbuf[11] != 0x55) {
+         if(ackbuf[11] != 0x55) {
               xprint(" S bad ");
               xprint_xchar(ackbuf[11]);
               xprint("\n");
@@ -1256,11 +1258,11 @@ void proc_type7(uint8_t *buffer, int len, char drop) {
 //          xprint("\n");
 //          if(my_S - his_R == 1) {
           if (retrena) retran = 1;
-          if(ampr_ethQueueEmpty()) {
+/*          if(ampr_ethQueueEmpty()) {
 //              xprint("Send q empty\n");
               queue_idle_data();      // make an idle message
           }
-          queue_idle_data();      // make an idle message
+          queue_idle_data();      // make an idle message */
 /*          if(debug & 32) {
             xprint("Got Ret RQ ");
             xprint_char(his_R + 1);
@@ -1298,42 +1300,52 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
     int count = length;
     char seg;
     RRpkts++;
-    RRbytes += count;
+    RRbytes += (count-1);
     seg = buffer[0] & 7;
     if(debug & 1) {
-      xprint("Rin : ");
-      xprint_int(count);
-      xprint(" sg ");
+      xprint("Radio rx ");
+      if(buffer[0] & FINFLAG) {
+          xprint("Fin seg :");
+      } else
+          xprint("Imm seg :");
       xprint_char(seg);
+      xprint(" size ");
+      xprint_int(count);
+      xprint(" RR :");
+      xprint_int(RRpkts);
+      xprint(" Recd ");
+      xprint_int(Recd - TRpkts);
       xprint("\n");
     }
     /* if we got a 0 segment set up segbits, and clear dropped */
     if (seg == 0) {
-//        GPIO_write(sigpin3,1);
-//        segbits = 1;  // mark we got 0
         dropped = 0;
     } // seg == 0
     // just debugging option
-        if (seg == dropseg) {
-            dropseg = 8;   //only drop once so  set it above segnr
+//    if (seg == dropseg) {
+//            dropseg = 8;   //only drop once so  set it above segnr
 //            return; // just a test to see retrans works
-            dropped = 1;
-        }
+//            dropped = 1;
+//    }
     if (seg < 6) {  // normal Imm or Fin segment
       if ((seg != expseg)) {
         if (dropped == 0) {
             dseg = expseg; // catch the 1st dropped segment
+//            xprint("Exp ");
+//            xprint_char(expseg);
+//            xprint("\n");
         }
-        dropped = 1;
+//        xprint("d\n");
+//        dropped = 1;
         if(expseg < 5)
            expseg++;  // assume only one dropped but only for immediate segments
-    }
+      }
 
-    segbits = segbits | (1<<seg);  // for all data packets set corr bit in segbits
+      segbits = segbits | (1<<seg);  // for all data packets set corr bit in segbits
       // see where segment should be plac
-    offset = seg * chunk;
+      offset = seg * chunk;
 // just a debug printout
-      if((debug & 0) != 0) {
+      if((debug & 1) != 0) {
           xprint_xchar(seg);
           if (buffer[0] & FINFLAG) {
               xprint(" FIN ");
@@ -1345,18 +1357,17 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
           xprint("\n");
       }
         // this copies the radio buffer into the ethernet packet , buffer[0] = ptype/seg, data begins in buffer[1]
-    if ((buffer[0] & FINFLAG) == 0) {  //this is imm seg
+      if ((buffer[0] & FINFLAG) == 0) {  //this is imm seg
             memcpy(&xmitbuffer[offset], &buffer[1], chunk); //copy data but not seg
             if (expseg < 5)
                    expseg++;
-    } else {                        // this is final seg
+      } else {                        // this is final seg
             memcpy(&xmitbuffer[offset], &buffer[1], (count - 1));
-//            expseg = 7; // this was last old code wanted packet 7
               expseg = 0; //
-//            segbits = 0;
-    }
+      }
+      if(dropped !=0) xprint("D\n");
     // we have now processed the whole ethernet packet
-    ecount = offset + count - 1; //offset should be computed from previous packet
+      ecount = offset + count - 1; //offset should be computed from previous packet
       if(dropped == 0) {
         if (buffer[0] & FINFLAG) {
           if ((debug & 0x1) != 0) {
@@ -1364,7 +1375,7 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
             xprint_int(ecount);
             xprint(" segbits : ");
             xprint_xchar(segbits);
-            xprint("\n");
+            xprint("\n\n");
           }
           if (memcmp (xmitbuffer, my_hwaddr,6) == 0) { // was packet for me??
               proc_eth(xmitbuffer, ecount,2); // mark packet came from radio
@@ -1382,13 +1393,14 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
           ESpkts++;
           dump_packet(xmitbuffer,ecount);
         } // this was a final packet
-      } else {      //dropped was 1 or more
-        dropctr++;
-      }     // if dropped == 0
-      expseg = 0;
-      ecount = 0;
-      segbits = 0;
-  } else {    // we get here on only seg 6 & 7
+       } else {      //dropped was 1 or more
+          dropctr++;
+       }     // test if dropped == 0
+       dropped = 0;
+       expseg = 0;
+       ecount = 0;
+       segbits = 0;
+    } else {    // we get here on only seg 6 & 7
 /*
  * we do not know if this is an ACK packet or a REX packet or a type 6 packet
  */
