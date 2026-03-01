@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0d";
+char version[] ="X 2.0e";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -373,6 +373,8 @@ void parse_cmd(char *cline, int cnt) {
     } else if (strcmp(cline, ("master")) == 0) {
         if(argc == 2) {
           role = atoi(argv[1]);
+          if(role == MASTER && Timer_tdm == 0)
+              Timer_tdm = TDMAPERIOD;
         }
         xprint("Node role = ");
         xprint_int(role);

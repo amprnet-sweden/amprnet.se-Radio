@@ -119,7 +119,8 @@ int32_t             UARTwrite_semStatus;
 int_fast16_t        status = UART2_STATUS_SUCCESS;
 volatile uint8_t packetRxCb;
 volatile uint16_t bytesReadCount;
-unsigned int Runtime;
+unsigned int Runtime = 0;
+unsigned int tdmastart_timestamp = 0;
 unsigned int Timer_per = 200; //periodeic timer, 20000 * 10 uS = 200 mS
 unsigned int Timer_tdm = 20;  // tdma master timer, set to a low value initially so that master starts quickly
 unsigned int Timer_def = 1;  // defer timer *** problem, should be possible to set .1 mS
@@ -501,9 +502,8 @@ void mainThread(void *arg0)
                  if(role == MASTER)
                  {
                      // Reset the TDMA cycle timer.
-                     // Note: This is not enough if a TX_SLOT event has already been queued.
-                     // TODO: Keep track of ongoing and finished cycles.
                      Timer_tdm = TDMAPERIOD;
+                     tdmastart_timestamp = Runtime;
                  }
                  myslot = 0;
             }
@@ -528,7 +528,10 @@ void mainThread(void *arg0)
         // Only the master uses the TX_SLOT event which is triggered by a timer.
         // The event is used to start a new TDMA cycle if the current one stalled
         // due to a slave not sending a TDMA message in its slot.
-        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT)
+        // However, if a new cycle has already been started this event should be ignored.
+        // This should normally not happen unless the slaves exceed their slot time.
+        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT
+                && (Runtime - tdmastart_timestamp >= TDMAPERIOD || tdmastart_timestamp == 0)) // Check that a new cycle is not already started
         {
             // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
@@ -549,9 +552,8 @@ void mainThread(void *arg0)
              if(role == MASTER)
              {
                  // Reset the TDMA cycle timer.
-                 // Note: This is not enough if a TX_SLOT event has already been queued.
-                 // TODO: Keep track of ongoing and finished cycles.
                  Timer_tdm = TDMAPERIOD;
+                 tdmastart_timestamp = Runtime;
              }
              myslot = 0;
         } // TX_SLOT
