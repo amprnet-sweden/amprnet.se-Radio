@@ -157,8 +157,8 @@ void update_ctab(uint8_t * addr) {
 }
 /* since tdma packets normally comes AFTER a transmission */
 void proc_tdma_packet(uint8_t *buffer, char count) {
-    int i,j,found_empty,enternew;
-    GPIO_toggle(sigpin);
+    int i,j,found_empty,enternew,found;
+    GPIO_write(sigpin2,1);
     if(debug & 512) {
         dump_tdma(buffer, count);
     }
@@ -172,6 +172,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               xprint("\n");
             }
             myslot = 1;
+            GPIO_write(sigpin,1);
           }
       }
     }
@@ -191,6 +192,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                         xprint("L");  // debug we found last slot
                       }
                       myslot = 1;
+                      GPIO_write(sigpin,1);
                   }
               }
           }
@@ -210,7 +212,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                 if(enternew) {     // no, it was not, then enter it
                   for(i=0;i<MAXSLAVES;i++) {       // find free entry in connect table
                     if(ctab[i].ttl == 0) {
-                      found_empty = 1;
+//                      found_empty = 1;
                       xprint("Found empty ");
                       xprint_int(i);
                       xprint("\n");
@@ -285,6 +287,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               settdma(&buffer[2],&buffer[8],buffer[20],volt);   // update tdma table
               memcpy(&tlist[0].macaddr, &buffer[22],30);          // save as recent tdma list
               if(role == 0) {                               // if I am a slave
+                  found = 0;
                   for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
                       j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
                       if((j == 0) && (cstate  == 1)) {                // if I am, I am conneclted
@@ -292,19 +295,26 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                        xprint_int(i);
                        myidx = i;                                     // this is my slave index
                        xprint("\n");
+                       found =1;
                        cstate = 2;                                    // change state to connected
+                      }
+                      if((found == 0) && (cstate == 3)) {
+                          xprint("Disconnected\n");
+                          cstate = 0;
                       }
                   }
               } // slaves only
           }
           break;
           case TINVITE: {
+              GPIO_write(sigpin3,1);
               if(cstate == 1) {
 //                xprint("INVITE rcvd");
                 RX_OFF();
                   tdma_connect();
                 RX_ON();
               }
+              GPIO_write(sigpin3,0);
           }
           break;
           default: {
@@ -321,7 +331,8 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           }
           break;
         }
-    }
+        GPIO_write(sigpin2,0);
+}
 int current_defer = 1500;
 uint8_t tbuffer[TSIZE];
 

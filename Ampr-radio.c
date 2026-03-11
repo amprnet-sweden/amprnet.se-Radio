@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0e";
+char version[] ="X 2.0f";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -770,9 +770,19 @@ void parse_cmd(char *cline, int cnt) {
                     for(int i=0;i<4;i++) {
                          my_ip[i] = buff[20+i];
                     }
+                    role = buff[24];
             }
             xprint("Stored Frequency ");
             xprint_int(freq);
+            xprint("\n");
+            xprint("Role : ");
+            if(role == 0) {
+                xprint("Slave");
+            } else {
+                xprint("Master ");
+//                xprint_int(nrconnects);
+//                xprint(" connected");
+            }
             xprint("\n");
             xprint("Radio mode ");
             xprint_char(mode);

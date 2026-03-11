@@ -487,11 +487,11 @@ void mainThread(void *arg0)
                 if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                     if((uartlen() != 0)) {
                           current_defer = 80 + uartlen();
-                          GPIO_write(sigpin2,1);
+//                          GPIO_write(sigpin2,1);
                           RX_OFF();
                           dequeue_uart();
                           RX_ON();
-                          GPIO_write(sigpin2,0);
+//                          GPIO_write(sigpin2,0);
                       }
                 }
                 // Send TDMA (whether or not we sent an Ethernet packet)
@@ -506,6 +506,7 @@ void mainThread(void *arg0)
                      tdmastart_timestamp = Runtime;
                  }
                  myslot = 0;
+                 GPIO_write(sigpin,0);
             }
         } // If radio RX received
 
@@ -537,11 +538,11 @@ void mainThread(void *arg0)
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                 if((uartlen() != 0)) {
                       current_defer = 80 + uartlen();
-                      GPIO_write(sigpin2,1);
+//                      GPIO_write(sigpin2,1);
                       RX_OFF();
                       dequeue_uart();
                       RX_ON();
-                      GPIO_write(sigpin2,0);
+//                      GPIO_write(sigpin2,0);
                   }
             }
             // Send TDMA (whether or not we sent an Ethernet packet)
