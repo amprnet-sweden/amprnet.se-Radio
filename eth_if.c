@@ -21,6 +21,8 @@ extern int EthEna;
 // Queue of buffers containing Ethernet frames to send to the Ethernet chip
 QueueHandle_t sendQueue;
 
+uint8_t extrabuf[EBSIZE];
+
 // TODO temporary implementation until buffer handles are used in ethproc
 void ethIf_send(uint8_t* buffer, uint16_t size)
 {
@@ -81,9 +83,21 @@ void vEthIf_task(void* pvParameters)
             continue;
         }
         int reclen = w5500readFrame(buffer.buffer, EBSIZE);
+        buffer.bytesUsed = reclen;
         if(reclen > 0) {
-            buffer.bytesUsed = reclen;
-            ampr_queueEth(&buffer);
+            // Don't put the packet in the radio queue if it is for me
+            if (memcmp (buffer.buffer, my_hwaddr,6) == 0) { // if this packet was for me
+                proc_eth(buffer.buffer, buffer.bytesUsed, PORT_ETH);
+                ethBuf_free(&buffer);
+            } else if (memcmp (buffer.buffer, bcaddr,6) == 0) { // Broadcast packet
+                // Process the packet in case we should reply to it,
+                // then send it on over the radio
+                memcpy(extrabuf,buffer.buffer,buffer.bytesUsed);
+                proc_eth(buffer.buffer, buffer.bytesUsed, PORT_ETH);
+                ampr_queueEth(&buffer);
+            } else {    // it was for someone else, send it over radio
+                ampr_queueEth(&buffer);
+            }
         } else {
             ethBuf_free(&buffer);
         }

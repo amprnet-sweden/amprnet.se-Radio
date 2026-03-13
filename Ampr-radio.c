@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0f";
+char version[] ="X 2.0g";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -1019,7 +1019,7 @@ char reseg;
      handle.bytesUsed = count;
      handle.packetNumber = pnum;
      // Queue packet (or drop it if the queue is full)
-     ampr_queueEth(&handle); // TODO should not be processed like a packet incoming from the ethernet interface
+     ampr_queueEth(&handle);
     }
 
     uint8_t extrabuf[1500];
@@ -1060,7 +1060,6 @@ char reseg;
             rexmitctr++;
             retran = 0;             // and retran will be done done
         } // if retran
-//        if(myslot !=0) {
         if(!ampr_ethQueueEmpty()) {              // if queue not empty
             ethBufHandle_t bufferHandle = ampr_dequeueEth();
             if(bufferHandle.bytesUsed != 0) {     // must be a valid count
@@ -1068,35 +1067,17 @@ char reseg;
 //                    my_S = bufferHandle.packetNumber;
 //                    send_epkt(bufferHandle.buffer, bufferHandle.bytesUsed);
                     count = bufferHandle.bytesUsed;
-                    // here we test if incoming packet is for us
-//                    xprint("Got ");
-//                    xprint_int(count);
-//                    xprint("\n");
-                    if (memcmp (bufferHandle.buffer, my_hwaddr,6) == 0) { // if this packet was for me
-                        proc_eth(bufferHandle.buffer, bufferHandle.bytesUsed,1);
-                    } else {    // it was for someone else
-//                        GPIO_write(sigpin2,1);
-//                        GPIO_toggle(sigpin2);a
-//                        xprint("S ");
-//                        xprint_char(my_S);
-//                        xprint("\n");
-                        my_S = bufferHandle.packetNumber;
-                        send_epkt(bufferHandle.buffer,bufferHandle.bytesUsed);
-                        count = bufferHandle.bytesUsed;
-//                        test_epkt(bufferHandle.buffer,count);
-                        if(memcmp(bufferHandle.buffer,bcaddr,6) == 0) {                  // if there was a broadcast
-                            memcpy(extrabuf,bufferHandle.buffer,bufferHandle.bytesUsed); // copy broadcast contents
-                            proc_eth(extrabuf, count,1);                                 // mark came from ethernet
-                        }
-                    }
+
+                    my_S = bufferHandle.packetNumber;
+                    send_epkt(bufferHandle.buffer,bufferHandle.bytesUsed);
+                    count = bufferHandle.bytesUsed;
                 } else {
                     xprint("QUE pktlen?\n");
                     while (1);
                 }
-            } // if packet was empty
+            }
             ethBuf_free(&bufferHandle);
             ebufsused--;
-// }
         } else {
           // we get here if queue empty
 /*          if(retran) {
@@ -1390,11 +1371,11 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
             xprint("\n\n");
           }
           if (memcmp (xmitbuffer, my_hwaddr,6) == 0) { // was packet for me??
-              proc_eth(xmitbuffer, ecount,2); // mark packet came from radio
+              proc_eth(xmitbuffer, ecount, PORT_RADIO); // mark packet came from radio
           } else {
               if(memcmp(xmitbuffer,bcaddr,6) == 0) { // have we assembled a broadcast message?
                  memcpy(extrabuf,xmitbuffer,ecount); // copy broadcast contents
-                 proc_eth(extrabuf, ecount,2);       // it might be for us to act on
+                 proc_eth(extrabuf, ecount, PORT_RADIO);       // it might be for us to act on
               }
               if(EthEna) {
                 ethIf_send(xmitbuffer,ecount);

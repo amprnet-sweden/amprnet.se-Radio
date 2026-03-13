@@ -103,7 +103,7 @@ void arp_reply(uint8_t * buf, int count,char port) {
     memcpy(&buf[32],&buf[22],10); // fill in hw adder and ip addr
     memcpy(&buf[22],my_hwaddr,6);   // and fill my mac
     memcpy(&buf[28], my_ip,4);     // and fill in my address
-    if (port == 1) {
+    if (port == PORT_ETH) {
       if(EthEna) {
         ethIf_send(buf,count);
       }
@@ -117,7 +117,7 @@ void arp_reply(uint8_t * buf, int count,char port) {
             }
             xprint("\n"); */
     }
-    if(port == 2) {
+    if(port == PORT_RADIO) {
 //      xprint("reply to arp via 2 Q :");
       my_Q++;
 //      xprint_char(my_Q);
@@ -152,12 +152,12 @@ void icmp_reply(uint8_t * buf, int count,char port) {
 //        xprint_xchar(chk & 0xff);
 //        xprint("\n");
           buf[36] += 8;
-          if(port == 1) {
+          if(port == PORT_ETH) {
             if(EthEna) {
               ethIf_send(buf,count);
             }
           }
-          if(port == 2) {
+          if(port == PORT_RADIO) {
 //              xprint("icmp to poirt 2\n");
               my_Q++;
               queue_eth(buf,count,my_Q);

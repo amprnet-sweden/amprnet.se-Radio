@@ -103,6 +103,11 @@ extern int myslot;
 extern uint16_t droppedEthPackets, droppedRadioPackets;
 extern int ebufsused;
 
+typedef enum
+{
+	PORT_ETH = 1,
+	PORT_RADIO = 2,
+} Port;
 //extern RF_Handle rfHandle;
 //extern RF_CmdHandle rfPostHandle;
 
