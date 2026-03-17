@@ -43,13 +43,13 @@
 
 //#define TDMAPERIOD 2000
 //#define TDMAPERIOD 500
-#define TDMAPERIOD 20
+#define TDMAPERIOD 18   // var 20
 #define TTABTTL 25
 #define CTABTTL 25
 #define TTABSIZE 4
 
 #define INVSLOT 2       // the timer controlling invite timeout
-#define INVPERIOD 20    // invperiod is the number of tdma packets between invites
+#define INVPERIOD 50    // invperiod is the number of tdma packets between invites, var 10
 
 
 #define CC1314R10

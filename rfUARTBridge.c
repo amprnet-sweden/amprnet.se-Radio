@@ -531,8 +531,9 @@ void mainThread(void *arg0)
         // due to a slave not sending a TDMA message in its slot.
         // However, if a new cycle has already been started this event should be ignored.
         // This should normally not happen unless the slaves exceed their slot time.
-        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT
-                && (Runtime - tdmastart_timestamp >= TDMAPERIOD || tdmastart_timestamp == 0)) // Check that a new cycle is not already started
+        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT && Timer_tdm == 0)
+//        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT && Timer_tdm == 0
+//                && (Runtime - tdmastart_timestamp >= TDMAPERIOD || tdmastart_timestamp == 0)) // Check that a new cycle is not already started
         {
             // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue

@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0g";
+char version[] ="X 2.0h";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -1061,6 +1061,7 @@ char reseg;
             retran = 0;             // and retran will be done done
         } // if retran
         if(!ampr_ethQueueEmpty()) {              // if queue not empty
+            GPIO_write(sigpin4,0);
             ethBufHandle_t bufferHandle = ampr_dequeueEth();
             if(bufferHandle.bytesUsed != 0) {     // must be a valid count
                 if(bufferHandle.bytesUsed <= 1514) {

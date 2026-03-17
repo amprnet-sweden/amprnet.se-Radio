@@ -291,15 +291,15 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                   for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
                       j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
                       if((j == 0) && (cstate  == 1)) {                // if I am, I am conneclted
-                       xprint("I am in list index ");
+                       xprint("Connected index ");
                        xprint_int(i);
                        myidx = i;                                     // this is my slave index
                        xprint("\n");
                        found =1;
                        cstate = 2;                                    // change state to connected
                       }
-                      if((found == 0) && (cstate == 3)) {
-                          xprint("Disconnected\n");
+                      if((found == 0)  && (cstate >= 2)) {
+                          xprint("Disc tlst\n");
                           cstate = 0;
                       }
                   }

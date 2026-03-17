@@ -77,7 +77,7 @@ void ampr_queueRadioTXFromISR()
 {
     amprEntry_t entry;
     entry.type = AMPR_QUEUE_TX_SLOT;
-    if(!xQueueSendFromISR(amprQueue, &entry, 0)) {
+    if(!xQueueSend(amprQueue, &entry, 0)) {
         droppedRadioSlots++;
     }
 }
