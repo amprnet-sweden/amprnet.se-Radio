@@ -7,7 +7,8 @@
 #include "Ampr-radio.h"
 
 // Number of radio RX packages, defined in NUM_DATA_ENTRIES in rfUartBridge.c
-#define RADIOCOUNT 16
+// + TX slot event
+#define RADIOCOUNT 33
 
 // Queue of incoming events to the Ampr-radio logic:
 // - Received packets over radio
@@ -73,11 +74,11 @@ void ampr_queueRadioRXFromISR()
     }
 }
 
-void ampr_queueRadioTXFromISR()
+void ampr_queueRadioTX()
 {
     amprEntry_t entry;
     entry.type = AMPR_QUEUE_TX_SLOT;
-    if(!xQueueSend(amprQueue, &entry, 0)) {
+    if(!xQueueSend(amprQueue, &entry, 0)) { // The timeout must be 0 since this function is called from a timer context so it must not block
         droppedRadioSlots++;
     }
 }

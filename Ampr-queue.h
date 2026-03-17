@@ -22,7 +22,7 @@ void ampr_initQueue();
 void ampr_queueEth(ethBufHandle_t* bufferHandle);
 
 void ampr_queueRadioRXFromISR();
-void ampr_queueRadioTXFromISR();
+void ampr_queueRadioTX();
 
 amprEntry_t ampr_dequeueRadio(uint32_t timeout_ms);
 

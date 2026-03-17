@@ -80,7 +80,7 @@ Timer_Params    Timparams;
 #define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
 //#define MAX_LENGTH             64 /* Max length byte the radio will accept */
 #define MAX_LENGTH             255 /* Max length byte the radio will accept if one size byte */
-#define NUM_DATA_ENTRIES       16  /* NOTE: Only two data entries supported at the moment */
+#define NUM_DATA_ENTRIES       32  /* NOTE: Only two data entries supported at the moment */
 #define NUM_APPENDED_BYTES     2  /* The Data Entries data field will contain:
                                    * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
                                    * Max 30 payload bytes
@@ -530,10 +530,8 @@ void mainThread(void *arg0)
         // The event is used to start a new TDMA cycle if the current one stalled
         // due to a slave not sending a TDMA message in its slot.
         // However, if a new cycle has already been started this event should be ignored.
-        // This should normally not happen unless the slaves exceed their slot time.
-        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT && Timer_tdm == 0)
-//        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT && Timer_tdm == 0
-//                && (Runtime - tdmastart_timestamp >= TDMAPERIOD || tdmastart_timestamp == 0)) // Check that a new cycle is not already started
+        // Currently this can happen if event processing is delayed due to printing to the console.
+        else if(role == MASTER && amprEntry.type == AMPR_QUEUE_TX_SLOT && Timer_tdm == 0) // Check that a new cycle is not already started (Timer_tdm already re-armed)
         {
             // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
@@ -622,7 +620,7 @@ void TimerCallbackFunction(void) {
     if(Timer_tdm) {
         Timer_tdm--;
         if(Timer_tdm == 0)
-            ampr_queueRadioTXFromISR(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
+            ampr_queueRadioTX(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
     }
 }
 /* unsigned int eints = 0;
