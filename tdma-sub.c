@@ -13,7 +13,7 @@
 struct tdmatable ttab[TTABSIZE];
 struct conntable ctab[MAXSLAVES];
 struct tdmalist  tlist[MAXSLAVES+1];    // latest tdma order, including master
-int cstate = 0;                         // cstate 1 auto slave and connect
+int cstate = 1;                         // cstate 1 auto slave and connect
 int myidx = 0;                          // my index into tdmalist
 uint8_t lastslave[6];
 
@@ -307,14 +307,18 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           }
           break;
           case TINVITE: {
+              if(role == SLAVE) {
               GPIO_write(sigpin3,1);
-              if(cstate == 1) {
+              i = rand() & 3;
+              if((cstate == 1)&& i==3) {
 //                xprint("INVITE rcvd");
+                  myslot = 1;
                 RX_OFF();
                   tdma_connect();
                 RX_ON();
               }
               GPIO_write(sigpin3,0);
+              }
           }
           break;
           default: {
@@ -356,6 +360,7 @@ void tdma_connect(void) {
         tbuffer[8+i] = my_call[i];
       }
       cstate = 1;
+      delay(1);
       RF_XMIT(tbuffer, 20);
       TSpkts++;
       if(debug & 1024) {
