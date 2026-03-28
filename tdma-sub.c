@@ -13,7 +13,8 @@
 struct tdmatable ttab[TTABSIZE];
 struct conntable ctab[MAXSLAVES];
 struct tdmalist  tlist[MAXSLAVES+1];    // latest tdma order, including master
-int cstate = 1;                         // cstate 1 auto slave and connect
+int cstate = IDLE;                         // cstate 1 auto slave and connect
+int autoconnect = 1;                        // autoconnect enable
 int myidx = 0;                          // my index into tdmalist
 uint8_t lastslave[6];
 
@@ -290,17 +291,20 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                   found = 0;
                   for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
                       j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
-                      if((j == 0) && (cstate  == 1)) {                // if I am, I am conneclted
+                      if((j == 0) && (cstate  == CONNECTING)) {                // if I am, I am conneclted
                        xprint("Connected index ");
                        xprint_int(i);
                        myidx = i;                                     // this is my slave index
                        xprint("\n");
                        found =1;
-                       cstate = 2;                                    // change state to connected
+                       cstate = CONNECTED;                                    // change state to connected
                       }
-                      if((found == 0)  && (cstate >= 2)) {
+                      if((found == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
                           xprint("Disc tlst\n");
-                          cstate = 0;
+/*                          if(autoconnect)
+                              cstate = 1;
+                          else */
+                              cstate = IDLE; // state is now idle
                       }
                   }
               } // slaves only
@@ -309,8 +313,10 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           case TINVITE: {
               if(role == SLAVE) {
               GPIO_write(sigpin3,1);
+/*              if((autoconnect) && (cstate == 0))
+                  cstate = 1; */
               i = rand() & 3;
-              if((cstate == 1)&& i==3) {
+              if((cstate == CONNECTING)&& i==3) {       // probability to connect 25%
 //                xprint("INVITE rcvd");
                   myslot = 1;
                 RX_OFF();
@@ -352,14 +358,14 @@ void tdma_header(char type) {
 void tdma_connect(void) {
 //    int prob;             // the rand function does not seem ok in stdlib
 //    prob = rand();
-    if(cstate != 0) {
+    if(cstate != IDLE) {
       tbuffer[0] = PTDMA;
       tbuffer[1] = TCONN;
       memcpy(&tbuffer[2],my_hwaddr,6);
       for(int i=0;i<12;i++) {
         tbuffer[8+i] = my_call[i];
       }
-      cstate = 1;
+      cstate = CONNECTING;
       delay(1);
       RF_XMIT(tbuffer, 20);
       TSpkts++;
@@ -447,7 +453,7 @@ void send_tdma_packet(void) {
              }
          }      // we are not sending INVITE
      } else {   // we are slave
-         if(cstate == 3) {
+         if(cstate == DISCONNECTING) {
              tdma_disconnect();
          }
      }

@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0j";
+char version[] ="X 2.0l";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -353,6 +353,7 @@ void parse_cmd(char *cline, int cnt) {
             buf[20+i] = my_ip[i];
         }
         buf[24] = role;
+        buf[25] = autoconnect;
         /* compute a checksum */
         csum = 0;
         for (int i=0; i<Nsize-1;i++) {
@@ -671,6 +672,14 @@ void parse_cmd(char *cline, int cnt) {
                 xprint_int(rxBw);
                 xprint("\n");
             }
+    } else if (strcmp(cline, ("auto")) == 0) {
+        if (argc == 2) {
+          autoconnect = atoi(argv[1]) & 1;
+        } else {
+            xprint("autoconnect = ");
+            xprint_int(autoconnect);
+            xprint("\n");
+        }
     }  else {
           if (argc > 0) {
              xprint("Illegal command\n");
@@ -771,6 +780,7 @@ void parse_cmd(char *cline, int cnt) {
                          my_ip[i] = buff[20+i];
                     }
                     role = buff[24];
+                    autoconnect = buff[25];
             }
             xprint("Stored Frequency ");
             xprint_int(freq);
@@ -778,6 +788,10 @@ void parse_cmd(char *cline, int cnt) {
             xprint("Role : ");
             if(role == 0) {
                 xprint("Slave");
+                if(autoconnect)
+                    xprint(" autoconnect");
+                else
+                    xprint(" manual connect");
             } else {
                 xprint("Master ");
 //                xprint_int(nrconnects);
@@ -850,6 +864,9 @@ void parse_cmd(char *cline, int cnt) {
                     onesec = 5;
 //                 xprint("TDMA ttl\n");
                     tdma_ttl();
+                    if(autoconnect && (cstate == IDLE)) {
+                        cstate = CONNECTING;
+                    }
                 }
             }
         }

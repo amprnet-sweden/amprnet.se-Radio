@@ -40,10 +40,15 @@
 #define TNACK 9
 #define TSNACK 10     //provision for nack table for multiple nodes
 #define TINVITE 11    // tell this is an invite slot
-
+//
+// define cstate possible values
+#define IDLE 0
+#define CONNECTING 1
+#define CONNECTED 2
+#define DISCONNECTING 3
 //#define TDMAPERIOD 2000
 //#define TDMAPERIOD 500
-#define TDMAPERIOD 18   // var 20
+#define TDMAPERIOD 25   // var 20
 #define TTABTTL 25
 #define CTABTTL 25
 #define TTABSIZE 4
@@ -98,6 +103,7 @@ extern unsigned long USpkts;
 extern int ucount[UBCOUNT];
 extern uint8_t ubuf[UBCOUNT][300];
 extern int cstate;      // slave connection state
+extern int autoconnect; //
 extern int new_synch;   // tdma make master send new tdma list
 extern int myslot;
 extern uint16_t droppedEthPackets, droppedRadioPackets;
