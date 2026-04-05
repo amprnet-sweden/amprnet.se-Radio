@@ -94,7 +94,7 @@ void vEthIf_task(void* pvParameters)
                 // Process the packet in case we should reply to it,
                 // then send it on over the radio
                 memcpy(extrabuf,buffer.buffer,buffer.bytesUsed);
-                proc_eth(buffer.buffer, buffer.bytesUsed, PORT_ETH);
+                proc_eth(extrabuf, buffer.bytesUsed, PORT_ETH);
                 ampr_queueEth(&buffer);
             } else {    // it was for someone else, send it over radio
                 ampr_queueEth(&buffer);
