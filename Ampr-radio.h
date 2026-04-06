@@ -2,6 +2,7 @@
 #define AMPR_RADIO_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
@@ -108,6 +109,7 @@ extern int new_synch;   // tdma make master send new tdma list
 extern int myslot;
 extern uint16_t droppedEthPackets, droppedRadioPackets;
 extern int ebufsused;
+extern bool rebootRequest;
 
 typedef enum
 {

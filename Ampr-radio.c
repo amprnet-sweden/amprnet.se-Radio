@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0l";
+char version[] ="X 2.0m";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -126,6 +126,7 @@ unsigned long RRpkts,RSpkts,ERpkts,ESpkts,URpkts,USpkts,TRpkts,TSpkts,ARPreq,ARP
 
 uint8_t debbuf[100][30];
 
+bool rebootRequest = false;
 
 void test_epkt(uint8_t * pkt, int cnt);
 void sendnack(char dseg); // send a status telling we lost x segments starting w dseg
@@ -680,6 +681,8 @@ void parse_cmd(char *cline, int cnt) {
             xprint_int(autoconnect);
             xprint("\n");
         }
+    } else if (strcmp(cline, ("reboot")) == 0) {
+        rebootRequest = true;
     }  else {
           if (argc > 0) {
              xprint("Illegal command\n");

@@ -57,6 +57,7 @@ Timer_Params    Timparams;
 
 /* Driverlib Header files */
 #include DeviceFamily_constructPath(driverlib/rf_prop_mailbox.h)
+#include DeviceFamily_constructPath(driverlib/sys_ctrl.h)
 
 /* Board Header files */
 #include "ti_drivers_config.h"
@@ -583,6 +584,12 @@ void mainThread(void *arg0)
 #endif
 
         checkcommand();
+
+        // Reboot request from shell command
+        if(rebootRequest)
+        {
+            SysCtrlSystemReset();
+        }
     }
 }
 
