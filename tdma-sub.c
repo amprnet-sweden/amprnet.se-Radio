@@ -201,6 +201,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           case TCONN: {
               if(role != 0) {   // we are master
 //                Timer_def = 0;
+                new_synch = 1;  // Send synch even if the client is already in the table, since the client may have restarted and not know it was connected
                 enternew = 1;   // assume it is not there
                 for(i=0;i < MAXSLAVES;i++) {      //check if already in ctab
                     int found = memcmp(&ctab[i].macaddr,&buffer[2],6);          // is this connect known?
@@ -219,7 +220,6 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                       xprint("\n");
                       memcpy(&ctab[i].macaddr,&buffer[2],6);
                       ctab[i].ttl = 25;
-                      new_synch = 1;                //
                       break;
                     }
                   }
