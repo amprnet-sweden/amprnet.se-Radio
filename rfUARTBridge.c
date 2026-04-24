@@ -330,10 +330,17 @@ void mainThread(void *arg0)
 
     GPIO_setConfig(CONFIG_GPIO_GLED, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
     GPIO_write(CONFIG_GPIO_GLED, CONFIG_GPIO_LED_OFF);
+#ifdef N536RADIO
+    IOCPortConfigureSet(RXEN, IOC_PORT_RFC_GPO0,IOC_IOMODE_NORMAL);
+    IOCPortConfigureSet(PAEN, IOC_PORT_RFC_GPO1,IOC_IOMODE_INV);
+    IOCPortConfigureSet(TXEN, IOC_PORT_RFC_GPO3,IOC_IOMODE_NORMAL);
+    IOCPortConfigureSet(LNAEN, IOC_PORT_RFC_GPO0,IOC_IOMODE_INV);
 
+#else
     IOCPortConfigureSet(LNA_HIGH, IOC_PORT_RFC_GPO0,IOC_IOMODE_NORMAL);
     IOCPortConfigureSet(PA_HIGH, IOC_PORT_RFC_GPO1,IOC_IOMODE_NORMAL);
     IOCPortConfigureSet(TX_HIGH, IOC_PORT_RFC_GPO3,IOC_IOMODE_NORMAL);
+#endif
     /*  toggle led pins to show module is alive */
         GPIO_toggle(CONFIG_GPIO_GLED);
         delay(1000);
@@ -507,7 +514,7 @@ void mainThread(void *arg0)
                      tdmastart_timestamp = Runtime;
                  }
                  myslot = 0;
-                 GPIO_write(sigpin,0);
+//                 GPIO_write(sigpin,0);
             }
         } // If radio RX received
 

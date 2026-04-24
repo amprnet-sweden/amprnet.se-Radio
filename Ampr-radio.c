@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0n";
+char version[] ="X 2.0o";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -607,7 +607,7 @@ void parse_cmd(char *cline, int cnt) {
     } else if (strcmp(cline, ("tasks")) == 0) {
         char outbuf[200];
         char *op = outbuf;
-        vTaskList( op);
+//        vTaskList( op);
         xprint("Name         State    Priority Stack   num\n");
         xprint(outbuf);
     } else if (strcmp(cline, ("ipadd")) == 0) {
@@ -774,7 +774,7 @@ void parse_cmd(char *cline, int cnt) {
                         xprint("Only values 0 and 10 - 15 supported for now\n");
                         mode = 10;
                     }
-                    EthEna = buff[7] & 1;
+                    // EthEna = buff[7] & 1; Deprecated, EthEna is set by eth_if depending on if the Ethernet chip is found
                     for(int i=0;i<12;i++) {
                          my_call[i] = buff[8+i];
                     }
@@ -1081,7 +1081,7 @@ char reseg;
             retran = 0;             // and retran will be done done
         } // if retran
         if(!ampr_ethQueueEmpty()) {              // if queue not empty
-            GPIO_write(sigpin4,0);
+//            GPIO_write(sigpin4,0);
             ethBufHandle_t bufferHandle = ampr_dequeueEth();
             if(bufferHandle.bytesUsed != 0) {     // must be a valid count
                 if(bufferHandle.bytesUsed <= 1514) {

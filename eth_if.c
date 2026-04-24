@@ -85,7 +85,7 @@ void vEthIf_task(void* pvParameters)
         int reclen = w5500readFrame(buffer.buffer, EBSIZE);
         buffer.bytesUsed = reclen;
         if(reclen > 0) {
-            GPIO_write(sigpin4,1);
+//            GPIO_write(sigpin4,1);
             // Don't put the packet in the radio queue if it is for me
             if (memcmp (buffer.buffer, my_hwaddr,6) == 0) { // if this packet was for me
                 proc_eth(buffer.buffer, buffer.bytesUsed, PORT_ETH);

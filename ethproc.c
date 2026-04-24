@@ -190,7 +190,7 @@ void proc_eth(uint8_t * buffer, int count,char port) {
               icmp_reply(buffer, count, port);
               break;
           default:
-              xprint_char(buffer[23]);
+              //xprint_char(buffer[23]);
               break;
           }
 /*          for(int i=0;i<count;i++) {

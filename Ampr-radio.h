@@ -6,6 +6,7 @@
 
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
+// #define N536RADIO 1 Set by build configuration
 // mode byte bit definitions
 #define BYTE_ADDR 0x1  // we are using two bytes, dst, src, BC=0xff
 #define TYPE_BYTE 0x2  // packet contains a type field

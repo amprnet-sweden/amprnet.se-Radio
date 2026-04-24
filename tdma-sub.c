@@ -159,7 +159,7 @@ void update_ctab(uint8_t * addr) {
 /* since tdma packets normally comes AFTER a transmission */
 void proc_tdma_packet(uint8_t *buffer, char count) {
     int i,j,found_empty,enternew,found;
-    GPIO_write(sigpin2,1);
+//    GPIO_write(sigpin2,1);
     if(debug & 512) {
         dump_tdma(buffer, count);
     }
@@ -173,7 +173,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               xprint("\n");
             }
             myslot = 1;
-            GPIO_write(sigpin,1);
+//            GPIO_write(sigpin,1);
           }
       }
     }
@@ -193,7 +193,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                         xprint("L");  // debug we found last slot
                       }
                       myslot = 1;
-                      GPIO_write(sigpin,1);
+//                      GPIO_write(sigpin,1);
                   }
               }
           }
@@ -312,7 +312,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           break;
           case TINVITE: {
               if(role == SLAVE) {
-              GPIO_write(sigpin3,1);
+//              GPIO_write(sigpin3,1);
 /*              if((autoconnect) && (cstate == 0))
                   cstate = 1; */
               i = rand() & 3;
@@ -323,7 +323,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                   tdma_connect();
                 RX_ON();
               }
-              GPIO_write(sigpin3,0);
+//              GPIO_write(sigpin3,0);
               }
           }
           break;
@@ -341,7 +341,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
           }
           break;
         }
-        GPIO_write(sigpin2,0);
+//        GPIO_write(sigpin2,0);
 }
 int current_defer = 1500;
 uint8_t tbuffer[TSIZE];
