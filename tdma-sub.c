@@ -13,7 +13,7 @@
 struct tdmatable ttab[TTABSIZE];
 struct conntable ctab[MAXSLAVES];
 struct tdmalist  tlist[MAXSLAVES+1];    // latest tdma order, including master
-int cstate = IDLE;                         // cstate 1 auto slave and connect
+int cstate = CIDLE;                         // cstate 1 auto slave and connect
 int autoconnect = 1;                        // autoconnect enable
 int myidx = 0;                          // my index into tdmalist
 uint8_t lastslave[6];
@@ -148,7 +148,7 @@ void dump_tdma(uint8_t * buffer,char count) {
 }
 
 void update_ctab(uint8_t * addr) {
-    int found,i;
+    int i;
     for(i=0;i<MAXSLAVES;i++) {
         if(memcmp(addr,ctab[i].macaddr,6) == 0) {
             ctab[i].ttl = CTABTTL;
@@ -158,7 +158,8 @@ void update_ctab(uint8_t * addr) {
 }
 /* since tdma packets normally comes AFTER a transmission */
 void proc_tdma_packet(uint8_t *buffer, char count) {
-    int i,j,found_empty,enternew,found;
+    int i,j,found_empty,enternew,foundi,tfound;
+    char tmpbuf[20];
 //    GPIO_write(sigpin2,1);
     if(debug & 512) {
         dump_tdma(buffer, count);
@@ -173,7 +174,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               xprint("\n");
             }
             myslot = 1;
-//            GPIO_write(sigpin,1);
+            GPIO_write(sigpin,1);
           }
       }
     }
@@ -193,7 +194,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                         xprint("L");  // debug we found last slot
                       }
                       myslot = 1;
-//                      GPIO_write(sigpin,1);
+                      GPIO_write(sigpin,1);
                   }
               }
           }
@@ -258,7 +259,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               break;
           } */
           case TSYNC: {
-              dump_tdma(buffer, count);
+//              dump_tdma(buffer, count);
               if(debug & 1024) {
               xprint("Master TSYNC\n");
                 xprint("M ");
@@ -288,24 +289,38 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               settdma(&buffer[2],&buffer[8],buffer[20],volt);   // update tdma table
               memcpy(&tlist[0].macaddr, &buffer[22],30);          // save as recent tdma list
               if(role == 0) {                               // if I am a slave
-                  found = 0;
-                  for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
-                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
-                      if((j == 0) && (cstate  == CONNECTING)) {                // if I am, I am conneclted
-                       xprint("Connected index ");
-                       xprint_int(i);
-                       myidx = i;                                     // this is my slave index
-                       xprint("\n");
-                       found =1;
-                       cstate = CONNECTED;                                    // change state to connected
+#ifdef MEMLOG
+                       dolog("Sync\r\n",6,0);
+#endif
+                  tfound = 0;
+                  for(i=1;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
+                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   //              dump_tdma(buffer, count);
+                      if(j == 0) {
+#ifdef MEMLOG
+                          sprintf(tmpbuf,"Found %d\r\n",i);
+                          dolog(tmpbuf,strlen(tmpbuf),0);
+#endif
+                          tfound = 1;
+                          myidx = i;
+                          if(cstate  == CONNECTING) {                // if I am, I am conneclted
+                             cstate = CONNECTED;          // change state to connected
+#ifdef MEMLOG
+                             sprintf(tmpbuf,"Conn index %d\r\n",i);
+                             dolog(tmpbuf,strlen(tmpbuf),0);
+#endif
+                          }
                       }
-                      if((found == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
-                          xprint("Disc tlst\n");
+                  }
+                  if((tfound == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
+#ifdef MEMLOG
+                       dolog("Disc\r\n",6,0);
+#endif
+//                          xprint("Disc tlst\n");
 /*                          if(autoconnect)
                               cstate = 1;
                           else */
-                              cstate = IDLE; // state is now idle
-                      }
+                              cstate = CIDLE; // state is now idle
+//                              dump_tdma(buffer, count);
                   }
               } // slaves only
           }
@@ -358,7 +373,7 @@ void tdma_header(char type) {
 void tdma_connect(void) {
 //    int prob;             // the rand function does not seem ok in stdlib
 //    prob = rand();
-    if(cstate != IDLE) {
+    if(cstate != CIDLE) {
       tbuffer[0] = PTDMA;
       tbuffer[1] = TCONN;
       memcpy(&tbuffer[2],my_hwaddr,6);
@@ -428,6 +443,13 @@ void send_tdma_packet(void) {
 //           Timer_def = INVSLOT;
          } else {
              invctr--;
+#ifdef MEMLOG
+             if(new_synch == 1) {
+             dolog("Send SY \r\n",10,0);
+             } else {
+                 dolog("Send TD \r\n",10,0);
+             }
+#endif
              if(new_synch == 1) {       // if it is time to send a new TDMA list
                  tbuffer[1] = TSYNC;    //
                  bzero(&tbuffer[22],30);      // clear out member list
@@ -494,15 +516,15 @@ void showtdma(void) {
 }
 void showtlist(void) {
 //    struct tdmalist *t;
-    xprintMAC(&tlist[0].macaddr);
+    xprintMAC(&tlist[0].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[1]);
+    xprintMAC(&tlist[1].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[2]);
+    xprintMAC(&tlist[2].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[3]);
+    xprintMAC(&tlist[3].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[4]);
+    xprintMAC(&tlist[4].macaddr[0]);
     xprint("\n");
 }
 void showctab(void) {

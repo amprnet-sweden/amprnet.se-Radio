@@ -91,7 +91,7 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0o";
+char version[] ="X 2.0p";
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -607,7 +607,7 @@ void parse_cmd(char *cline, int cnt) {
     } else if (strcmp(cline, ("tasks")) == 0) {
         char outbuf[200];
         char *op = outbuf;
-//        vTaskList( op);
+        vTaskList( op);
         xprint("Name         State    Priority Stack   num\n");
         xprint(outbuf);
     } else if (strcmp(cline, ("ipadd")) == 0) {
@@ -649,6 +649,50 @@ void parse_cmd(char *cline, int cnt) {
             }
             xprint("\n");
         }
+//#ifdef MEMLOG
+    } else if (strcmp(cline, ("logger")) == 0) {
+        char *str = "192.168.0.1"; //, *str2;
+        unsigned char value[4] = {0};
+        size_t index = 0;
+        if(argc >= 2) {
+            str = argv[1];
+//            str2 = str; /* save the pointer */
+            while (*str) {
+                if (isdigit((unsigned char)*str)) {
+                    value[index] *= 10;
+                    value[index] += *str - '0';
+                } else {
+                    index++;
+                }
+                str++;
+            }
+            xprint_int(value[0]);
+            xprint(".");
+            xprint_int(value[1]);
+            xprint(".");
+            xprint_int(value[2]);
+            xprint(".");
+            xprint_int(value[3]);
+            xprint("\n");
+            int siz = strlen(argv[1]);
+            if((siz > 15) || (siz < 7)) {
+                xprint("Log ip length??\n");
+            } else {
+                for(int i=0;i<4;i++) {
+                    lg_ip[i] = value[i];
+                }
+            }
+        } else {
+            xprint("Log ip : ");
+            for(int i=0;i<4;i++) {
+                xprint_char(lg_ip[i]);
+                xprint(".");
+            }
+            xprint("\n");
+            xprint("\n");
+            showlog();
+        }
+//#endif
     } else if (strcmp(cline, ("deviation")) == 0) {
         if (argc == 2) {
           deviation = atoi(argv[1]);
@@ -867,7 +911,7 @@ void parse_cmd(char *cline, int cnt) {
                     onesec = 5;
 //                 xprint("TDMA ttl\n");
                     tdma_ttl();
-                    if(autoconnect && (cstate == IDLE)) {
+                    if(autoconnect && (cstate == CIDLE)) {
                         cstate = CONNECTING;
                     }
                 }

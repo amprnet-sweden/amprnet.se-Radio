@@ -291,6 +291,10 @@ void mainThread(void *arg0)
 
     SPI_init();
     NVS_init();
+#ifdef MEMLOG
+    loginit();
+    dolog("Amprnet Radio logger  \r\n", 24, 0);
+#endif
 //    NVS_Params_init(&nvsParams);
 
     Timer_Params_init(&Timparams);
@@ -514,7 +518,7 @@ void mainThread(void *arg0)
                      tdmastart_timestamp = Runtime;
                  }
                  myslot = 0;
-//                 GPIO_write(sigpin,0);
+                 GPIO_write(sigpin,0);
             }
         } // If radio RX received
 

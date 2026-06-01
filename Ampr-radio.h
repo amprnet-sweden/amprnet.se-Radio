@@ -7,6 +7,9 @@
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 // #define N536RADIO 1 Set by build configuration
+#define MEMLOG 1
+#define LOGSIZE 2048
+#define NETLOG 1
 // mode byte bit definitions
 #define BYTE_ADDR 0x1  // we are using two bytes, dst, src, BC=0xff
 #define TYPE_BYTE 0x2  // packet contains a type field
@@ -44,7 +47,7 @@
 #define TINVITE 11    // tell this is an invite slot
 //
 // define cstate possible values
-#define IDLE 0
+#define CIDLE 0
 #define CONNECTING 1
 #define CONNECTED 2
 #define DISCONNECTING 3
@@ -86,6 +89,7 @@ extern int LcdEna;
 extern char version[];
 extern uint8_t my_hwaddr[];
 extern uint8_t my_ip[];
+extern uint8_t lg_ip[];
 extern int current_defer;
 extern char my_call[12];
 extern int parchange;
@@ -132,6 +136,9 @@ void printMAC(void);
 void xprint_schar(signed char x);
 void SendPacket(uint8_t *msg, char cnt);
 void log_from_queue(char * buffer, uint8_t count);
+void loginit(void);
+void dolog(uint8_t *message, int size, int net);
+void showlog(void);
 void decode_packet(char * buffer, uint8_t count);
 void start_terminal(void);
 void delay(int time);
