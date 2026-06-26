@@ -429,7 +429,7 @@ void mainThread(void *arg0)
 //
 #ifdef FSK4
     RF_cmdPropRadioDivSetup.formatConf.fecMode = 9; // GW 02-dec-25 enable 4fsk
-    RF_cmdPropRadioDivSetup.modulation.deviation = 600;
+    RF_cmdPropRadioDivSetup.modulation.deviation = 200; // 1/3 mod at 2FSK
 #endif
 
 //    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xe0000;   //GW speed 1400

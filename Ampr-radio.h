@@ -6,10 +6,12 @@
 
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
-// #define N536RADIO 1 Set by build configuration
 #define MEMLOG 1
 #define LOGSIZE 2048
 #define NETLOG 1
+
+#define DHCPC 1     // if defined, includes dhcp code in ethproc.c
+// #define N536RADIO 1 Set by build configuration
 // mode byte bit definitions
 #define BYTE_ADDR 0x1  // we are using two bytes, dst, src, BC=0xff
 #define TYPE_BYTE 0x2  // packet contains a type field
@@ -115,7 +117,7 @@ extern int myslot;
 extern uint16_t droppedEthPackets, droppedRadioPackets;
 extern int ebufsused;
 extern bool rebootRequest;
-
+extern int dhcp_discovery(uint8_t *mac);
 typedef enum
 {
 	PORT_ETH = 1,

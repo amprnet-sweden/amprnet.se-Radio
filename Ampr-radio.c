@@ -91,7 +91,11 @@ uint8_t m1,m2,m3,m4,m5,m6;
 uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
-char version[] ="X 2.0p";
+#ifdef N536RADIO
+char version[] ="R2 X 2.0q";
+#else
+char version[] ="R1 X 2.0q";
+#endif
 //settings
 int listener = 0;
 #if defined HAM23CMRADIO
@@ -112,6 +116,7 @@ uint8_t wantednum;
 int quedepth = 0;
 int quemax = 0;
 unsigned int onesec = 5;    // depends on Timer_per, 5 times 200 mS
+unsigned int dhcptime = 5;  // initialy 1 second, later 30
 
 uint8_t pktbuf[1518];
 NVS_Handle nvsHandle;
@@ -258,19 +263,19 @@ void parse_cmd(char *cline, int cnt) {
                 break;
             case 14:
                 bitrate = 0xe0000;
-                deviation = 650;
+                deviation = 700;
                 break;
             case 15:
                 bitrate = 0xf0000;
-                deviation = 650;
+                deviation = 750;
                 break;
             case 16:
                 bitrate = 0x100000;
-                deviation = 650;
+                deviation = 800;
                 break;
             default:
-                xprint("Only values 0 and 10 - 15 supported for now\n");
-                mode = 10;
+                xprint("Only values 0 and 10 - 16 supported for now, default 12\n");
+                mode = 12;
             }
             parchange = 1;
           } else {
@@ -576,6 +581,10 @@ void parse_cmd(char *cline, int cnt) {
         }
     } else if (strcmp(cline, ("sy")) == 0) {
          new_synch = 1;
+#ifdef DHCPC
+    } else if (strcmp(cline, ("dhcp")) == 0) {
+        dhcp_discovery( &my_hwaddr);
+#endif
     } else if (strcmp(cline, ("tdt")) == 0) {
          showtdma();
     } else if (strcmp(cline, ("ctab")) == 0) {
@@ -649,50 +658,51 @@ void parse_cmd(char *cline, int cnt) {
             }
             xprint("\n");
         }
-//#ifdef MEMLOG
+
+#ifdef MEMLOG
     } else if (strcmp(cline, ("logger")) == 0) {
-        char *str = "192.168.0.1"; //, *str2;
-        unsigned char value[4] = {0};
-        size_t index = 0;
-        if(argc >= 2) {
-            str = argv[1];
-//            str2 = str; /* save the pointer */
-            while (*str) {
-                if (isdigit((unsigned char)*str)) {
-                    value[index] *= 10;
-                    value[index] += *str - '0';
+                char *str = "192.168.0.1"; //, *str2;
+                unsigned char value[4] = {0};
+                size_t index = 0;
+                if(argc >= 2) {
+                    str = argv[1];
+        //            str2 = str; /* save the pointer */
+                    while (*str) {
+                        if (isdigit((unsigned char)*str)) {
+                            value[index] *= 10;
+                            value[index] += *str - '0';
+                        } else {
+                            index++;
+                        }
+                        str++;
+                    }
+                    xprint_int(value[0]);
+                    xprint(".");
+                    xprint_int(value[1]);
+                    xprint(".");
+                    xprint_int(value[2]);
+                    xprint(".");
+                    xprint_int(value[3]);
+                    xprint("\n");
+                    int siz = strlen(argv[1]);
+                    if((siz > 15) || (siz < 7)) {
+                        xprint("Log ip length??\n");
+                    } else {
+                        for(int i=0;i<4;i++) {
+                            lg_ip[i] = value[i];
+                        }
+                    }
                 } else {
-                    index++;
-                }
-                str++;
-            }
-            xprint_int(value[0]);
-            xprint(".");
-            xprint_int(value[1]);
-            xprint(".");
-            xprint_int(value[2]);
-            xprint(".");
-            xprint_int(value[3]);
-            xprint("\n");
-            int siz = strlen(argv[1]);
-            if((siz > 15) || (siz < 7)) {
-                xprint("Log ip length??\n");
-            } else {
-                for(int i=0;i<4;i++) {
-                    lg_ip[i] = value[i];
-                }
-            }
-        } else {
-            xprint("Log ip : ");
-            for(int i=0;i<4;i++) {
-                xprint_char(lg_ip[i]);
-                xprint(".");
-            }
-            xprint("\n");
-            xprint("\n");
-            showlog();
-        }
-//#endif
+                    xprint("Log ip : ");
+                    for(int i=0;i<4;i++) {
+                        xprint_char(lg_ip[i]);
+                        xprint(".");
+                    }
+                    xprint("\n");
+                    xprint("\n");
+                    showlog();
+          }
+#endif
     } else if (strcmp(cline, ("deviation")) == 0) {
         if (argc == 2) {
           deviation = atoi(argv[1]);
@@ -785,34 +795,42 @@ void parse_cmd(char *cline, int cnt) {
                       case 0:
                         bitrate = 0xa0000;
                         deviation = 350;
+                        rxBw = 100;
                         break;
                     case 10:
                         bitrate = 0xa0000;
                         deviation = 500;
+                        rxBw = 100;
                         break;
                     case 11:
                         bitrate = 0xb0000;
                         deviation = 550;
+                        rxBw = 100;
                       break;
                     case 12:
                         bitrate = 0xc0000;
                         deviation = 600;
+                        rxBw = 100;
                         break;
                     case 13:
                         bitrate = 0xd0000;
                         deviation = 650;
+                        rxBw = 101;
                         break;
                     case 14:
                         bitrate = 0xe0000;
-                        deviation = 650;
+                        deviation = 700;
+                        rxBw = 101;
                         break;
                     case 15:
                         bitrate = 0xf0000;
-                        deviation = 650;
+                        deviation = 750;
+                        rxBw = 101;
                         break;
                     case 16:
                         bitrate = 0x100000;
-                        deviation = 650;
+                        deviation = 800;
+                        rxBw = 102;
                         break;
                     default:
                         xprint("Only values 0 and 10 - 15 supported for now\n");
@@ -915,10 +933,18 @@ void parse_cmd(char *cline, int cnt) {
                         cstate = CONNECTING;
                     }
                 }
+#ifdef DHCPC
+                if(--dhcptime == 0) {
+                    dhcptime = 150; // every 30 seconds
+                    if((my_ip[0] | my_ip[1] | my_ip[2] | my_ip[3] ) == 0) {
+                      dhcp_discovery(&my_hwaddr);
+                      xprint("Sent dhcp req \n");
+                    }
+                }
+#endif
             }
-        }
     }
-//}
+}
 unsigned char ptxtctr;
 void Send_beacon() {
     int mlen;
