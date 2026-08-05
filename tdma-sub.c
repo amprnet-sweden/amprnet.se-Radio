@@ -148,7 +148,7 @@ void dump_tdma(uint8_t * buffer,char count) {
 }
 
 void update_ctab(uint8_t * addr) {
-    int i;
+    int found,i;
     for(i=0;i<MAXSLAVES;i++) {
         if(memcmp(addr,ctab[i].macaddr,6) == 0) {
             ctab[i].ttl = CTABTTL;
@@ -158,12 +158,7 @@ void update_ctab(uint8_t * addr) {
 }
 /* since tdma packets normally comes AFTER a transmission */
 void proc_tdma_packet(uint8_t *buffer, char count) {
-    int i,j,found_empty,enternew,foundi,tfound;
-    char tmpbuf[20];
-//    GPIO_write(sigpin2,1);
-    if(debug & 512) {
-        dump_tdma(buffer, count);
-    }
+    int i,j,found_empty,enternew,found;
     if((role == 0) && (buffer[1] != TINVITE)) { // if we are a slave, match packet for the ID before OUR, this means our slot is next
                                                 // dont do this if invite, sync or ttdm will follow after invite slot
       if(memcmp(&buffer[2],&tlist[myidx-1].macaddr,6) == 0) { // was this the node befor ours?
@@ -174,7 +169,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               xprint("\n");
             }
             myslot = 1;
-            GPIO_write(sigpin,1);
+//            GPIO_write(sigpin,1);
           }
       }
     }
@@ -194,7 +189,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
                         xprint("L");  // debug we found last slot
                       }
                       myslot = 1;
-                      GPIO_write(sigpin,1);
+//                      GPIO_write(sigpin,1);
                   }
               }
           }
@@ -259,7 +254,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               break;
           } */
           case TSYNC: {
-//              dump_tdma(buffer, count);
+              dump_tdma(buffer, count);
               if(debug & 1024) {
               xprint("Master TSYNC\n");
                 xprint("M ");
@@ -289,38 +284,24 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               settdma(&buffer[2],&buffer[8],buffer[20],volt);   // update tdma table
               memcpy(&tlist[0].macaddr, &buffer[22],30);          // save as recent tdma list
               if(role == 0) {                               // if I am a slave
-#ifdef MEMLOG
-                       dolog("Sync\r\n",6,0);
-#endif
-                  tfound = 0;
-                  for(i=1;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
-                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   //              dump_tdma(buffer, count);
-                      if(j == 0) {
-#ifdef MEMLOG
-                          sprintf(tmpbuf,"Found %d\r\n",i);
-                          dolog(tmpbuf,strlen(tmpbuf),0);
-#endif
-                          tfound = 1;
-                          myidx = i;
-                          if(cstate  == CONNECTING) {                // if I am, I am conneclted
-                             cstate = CONNECTED;          // change state to connected
-#ifdef MEMLOG
-                             sprintf(tmpbuf,"Conn index %d\r\n",i);
-                             dolog(tmpbuf,strlen(tmpbuf),0);
-#endif
-                          }
+                  found = 0;
+                  for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
+                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
+                      if((j == 0) && (cstate  == CONNECTING)) {                // if I am, I am conneclted
+                       xprint("Connected index ");
+                       xprint_int(i);
+                       myidx = i;                                     // this is my slave index
+                       xprint("\n");
+                       found =1;
+                       cstate = CONNECTED;                                    // change state to connected
                       }
-                  }
-                  if((tfound == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
-#ifdef MEMLOG
-                       dolog("Disc\r\n",6,0);
-#endif
-//                          xprint("Disc tlst\n");
+                      if((found == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
+                          xprint("Disc tlst\n");
 /*                          if(autoconnect)
                               cstate = 1;
                           else */
                               cstate = CIDLE; // state is now idle
-//                              dump_tdma(buffer, count);
+                      }
                   }
               } // slaves only
           }
@@ -358,7 +339,7 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
         }
 //        GPIO_write(sigpin2,0);
 }
-int current_defer = 1500;
+// int current_defer = 1500; // not used GW
 uint8_t tbuffer[TSIZE];
 
 
@@ -381,7 +362,7 @@ void tdma_connect(void) {
         tbuffer[8+i] = my_call[i];
       }
       cstate = CONNECTING;
-      delay(1);
+//      delay(1);
       RF_XMIT(tbuffer, 20);
       TSpkts++;
       if(debug & 1024) {
@@ -427,6 +408,9 @@ void send_tdma_packet(void) {
     bvolt = volt/20;
     tbuffer[0] = PTDMA;
      tbuffer[1] = TTDMA;
+#ifdef TDDEBUG8
+     dolog("SN  \r\n", 6, 0);
+#endif
      // fill in your ID
      memcpy(&tbuffer[2],my_hwaddr,6);
      for(int i=0;i<12;i++) {
@@ -437,19 +421,10 @@ void send_tdma_packet(void) {
      tlen = 22;                        // assume NOT SYNCH packet
      if(role == MASTER) {              // only master does this
          if(invctr == 0) {             // if it is time for an invite
-//           GPIO_write(sigpin,1);
            invctr = INVPERIOD;         // set up the invite period
            tbuffer[1] = TINVITE;       //
-//           Timer_def = INVSLOT;
          } else {
              invctr--;
-#ifdef MEMLOG
-             if(new_synch == 1) {
-             dolog("Send SY \r\n",10,0);
-             } else {
-                 dolog("Send TD \r\n",10,0);
-             }
-#endif
              if(new_synch == 1) {       // if it is time to send a new TDMA list
                  tbuffer[1] = TSYNC;    //
                  bzero(&tbuffer[22],30);      // clear out member list
@@ -479,7 +454,9 @@ void send_tdma_packet(void) {
              tdma_disconnect();
          }
      }
+//     RX_OFF();  //GW
      RF_XMIT(tbuffer, tlen);
+//     RX_ON();   //GW
      TSpkts++;
  }
 
@@ -516,15 +493,15 @@ void showtdma(void) {
 }
 void showtlist(void) {
 //    struct tdmalist *t;
-    xprintMAC(&tlist[0].macaddr[0]);
+    xprintMAC(&tlist[0].macaddr);
     xprint("\n");
-    xprintMAC(&tlist[1].macaddr[0]);
+    xprintMAC(&tlist[1]);
     xprint("\n");
-    xprintMAC(&tlist[2].macaddr[0]);
+    xprintMAC(&tlist[2]);
     xprint("\n");
-    xprintMAC(&tlist[3].macaddr[0]);
+    xprintMAC(&tlist[3]);
     xprint("\n");
-    xprintMAC(&tlist[4].macaddr[0]);
+    xprintMAC(&tlist[4]);
     xprint("\n");
 }
 void showctab(void) {

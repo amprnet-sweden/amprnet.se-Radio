@@ -5,6 +5,7 @@
 #include <task.h>
 #include <queue.h>
 #include "Ampr-radio.h"
+#include "ti_drivers_config.h"
 
 // Number of radio RX packages, defined in NUM_DATA_ENTRIES in rfUartBridge.c
 // + TX slot event
@@ -34,6 +35,7 @@ void ampr_queueEth(ethBufHandle_t* bufferHandle) {
         droppedEthPackets++;
         xprint("dropped\n");
     } else {
+
 //    xprint("queued\n");
     }
 }
@@ -72,6 +74,9 @@ void ampr_queueRadioRXFromISR()
     if(!xQueueSendFromISR(amprQueue, &entry, 0)) {
         droppedRadioPackets++; // Note: The packet is not actually dropped from the RFQueue
     }
+#ifdef  TDDEBUG
+        GPIO_write(sigpin2,0);
+#endif
 }
 
 void ampr_queueRadioTX()

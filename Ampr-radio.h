@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TDDEBUG 1
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 #define MEMLOG 1
@@ -24,6 +25,7 @@
 #define LCD
 #define TSIZE 40
 //#define SPISPEED 16000000
+#define FSK4 1
 
 #define PETH 0x00       // ethernet transport
 #define PTXT 0x10       // text or actually uint8_t over serial line
@@ -55,7 +57,7 @@
 #define DISCONNECTING 3
 //#define TDMAPERIOD 2000
 //#define TDMAPERIOD 500
-#define TDMAPERIOD 25   // var 20
+#define TDMAPERIOD 15   // var 20
 #define TTABTTL 25
 #define CTABTTL 25
 #define TTABSIZE 4
@@ -70,6 +72,7 @@
 #define UBCOUNT 8
 #define EBCOUNT 40      // number of buffers in queue
 #define EOBCOUNT 20
+extern int TDMASENT;
 extern int role;
 extern unsigned int Timer0, Timer1, Timer_per, Timer_def, Timer_tdm;
 extern uint8_t m1,m2,m3,m4,m5,m6;
@@ -138,9 +141,6 @@ void printMAC(void);
 void xprint_schar(signed char x);
 void SendPacket(uint8_t *msg, char cnt);
 void log_from_queue(char * buffer, uint8_t count);
-void loginit(void);
-void dolog(uint8_t *message, int size, int net);
-void showlog(void);
 void decode_packet(char * buffer, uint8_t count);
 void start_terminal(void);
 void delay(int time);

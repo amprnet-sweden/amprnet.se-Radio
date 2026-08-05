@@ -64,7 +64,7 @@ int myslot;          // if this is 1 it is our time to send
 int EthEna = 0;
 int LcdEna = 1;
 int debug = 0;
-int tdelay = 6;     // default delay afte tx
+int tdelay = 20;     // default delay afte tx
 int retrena = 1;        // retransmit enabled by default
 char cc;
 int Txcount;      // the number of test packets
@@ -92,9 +92,9 @@ uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
 #ifdef N536RADIO
-char version[] ="R2 X 2.0q";
+char version[] ="R2 X 2.0r";
 #else
-char version[] ="R1 X 2.0q";
+char version[] ="R1 X 2.0r";
 #endif
 //settings
 int listener = 0;
@@ -240,40 +240,50 @@ void parse_cmd(char *cline, int cnt) {
     } else if (strcmp(cline, ("mode")) == 0) {
         if(argc == 2) {
           mode = atoi(argv[1]);
+#ifdef FSK4
+            clearfsk4();
+#endif
             switch(mode) {
               case 0:
                 bitrate = 0xa0000;
                 deviation = 350;
                 break;
-            case 10:
+              case 10:
                 bitrate = 0xa0000;
                 deviation = 500;
                 break;
-            case 11:
+              case 11:
                 bitrate = 0xb0000;
                 deviation = 550;
               break;
-            case 12:
+              case 12:
                 bitrate = 0xc0000;
                 deviation = 600;
                 break;
-            case 13:
+              case 13:
                 bitrate = 0xd0000;
                 deviation = 650;
                 break;
-            case 14:
+              case 14:
                 bitrate = 0xe0000;
                 deviation = 700;
                 break;
-            case 15:
+              case 15:
                 bitrate = 0xf0000;
                 deviation = 750;
                 break;
-            case 16:
+              case 16:
                 bitrate = 0x100000;
                 deviation = 800;
                 break;
-            default:
+              case 20:
+                bitrate = 0xa0000;
+                deviation = 166;
+#ifdef FSK4
+                setfsk4();
+#endif
+                break;
+              default:
                 xprint("Only values 0 and 10 - 16 supported for now, default 12\n");
                 mode = 12;
             }
@@ -791,6 +801,9 @@ void parse_cmd(char *cline, int cnt) {
                     myaddr = buff[4];
                     peeraddr = buff[5];
                     mode = buff[6];
+#ifdef FSK4
+                    clearfsk4();
+#endif
                     switch(mode) {
                       case 0:
                         bitrate = 0xa0000;
@@ -831,6 +844,14 @@ void parse_cmd(char *cline, int cnt) {
                         bitrate = 0x100000;
                         deviation = 800;
                         rxBw = 102;
+                        break;
+                    case 20:
+                        bitrate = 0xa0000;
+                        deviation = 167;
+                        rxBw = 100;
+#ifdef FSK4
+                        setfsk4();
+#endif
                         break;
                     default:
                         xprint("Only values 0 and 10 - 15 supported for now\n");
@@ -943,8 +964,9 @@ void parse_cmd(char *cline, int cnt) {
                 }
 #endif
             }
+        }
     }
-}
+//}
 unsigned char ptxtctr;
 void Send_beacon() {
     int mlen;
@@ -1066,7 +1088,6 @@ void dump_packet(uint8_t *buf,char blen) {
 
 #ifdef ETHERNET
 
-void send_epkt(uint8_t *pktbuf, int reclen);
 #define chunk 253
 char ackbits;
 uint8_t rexmitbuf[chunk+10];
@@ -1119,6 +1140,9 @@ char reseg;
         int count;
 //        char diff;
         count = 0;
+#ifdef TDDEBUG
+        GPIO_write(sigpin4,1);
+#endif
         if(retran) {               // if peer did not ack my last sent, back up index one packet
 //          xprint("ReTX last OK ");
 //          xprint_char(his_R);
@@ -1151,12 +1175,13 @@ char reseg;
             retran = 0;             // and retran will be done done
         } // if retran
         if(!ampr_ethQueueEmpty()) {              // if queue not empty
-//            GPIO_write(sigpin4,0);
+#ifdef TDDEBUG
+            GPIO_write(sigpin,0);
+            GPIO_write(sigpin,1);
+#endif
             ethBufHandle_t bufferHandle = ampr_dequeueEth();
             if(bufferHandle.bytesUsed != 0) {     // must be a valid count
                 if(bufferHandle.bytesUsed <= 1514) {
-//                    my_S = bufferHandle.packetNumber;
-//                    send_epkt(bufferHandle.buffer, bufferHandle.bytesUsed);
                     count = bufferHandle.bytesUsed;
 
                     my_S = bufferHandle.packetNumber;
@@ -1283,7 +1308,12 @@ void send_epkt(uint8_t *pktbuf, int reclen) {
           } */
 //          Timer_def = tdelay; //set defer timer
       }
+      send_tdma_packet();
+      TDMASENT = 1;
       RX_ON();
+#ifdef TDDEBUG
+      GPIO_write(sigpin,0);
+#endif
 //   } // ethena = 1
 }
 
@@ -1471,6 +1501,9 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
               if(EthEna) {
                 ethIf_send(xmitbuffer,ecount);
               }
+#ifdef TDDEBUG
+              GPIO_write(sigpin,0);
+#endif
               test_epkt(xmitbuffer,ecount);
           }
           ESbytes += ecount;
@@ -1489,7 +1522,6 @@ void send_ether(unsigned char * buffer, char length) {  /* reassemble radio pack
  * we do not know if this is an ACK packet or a REX packet or a type 6 packet
  */
       if(seg == 7) {
-//        GPIO_write(sigpin3,0);
         proc_type7(buffer, count, dropped);
         if(dropped != 0) {   // if send nack requested
           if(retrena)  { //if retransmit enabled
@@ -1539,9 +1571,13 @@ void whatpacket(uint8_t * buffer, char length) {
     pktype = buffer[0] & 0xf0;
     switch(pktype) {
     case PETH:
-//            GPIO_write(sigpin3,1);
+#ifdef TDDEBUG
+        GPIO_write(sigpin3,1);
+#endif
         send_ether(buffer,length);
-//            GPIO_write(sigpin3,0);
+#ifdef TDDEBUG
+        GPIO_write(sigpin3,0);
+#endif
         break;
     case PTXT:  // this is a "uart" packet, send it out
         SendText(&buffer[1], length - 1);
@@ -1554,9 +1590,16 @@ void whatpacket(uint8_t * buffer, char length) {
     case PXXX:
         xprint("XXX pktype\n");
         break;
-    case PTDMA:
+    case PTDMA: {
+#ifdef TDDEBUG
+        GPIO_write(sigpin5,1);
+#endif
         proc_tdma_packet(buffer,length);
-        break;
+#ifdef TDDEBUG
+        GPIO_write(sigpin5,0);
+//        dolog("TR  \r\n", 6, 0);
+#endif
+        break; }
     default:
 //        xprint("Bad pktype : ");
 //        xprint_char(pktype);

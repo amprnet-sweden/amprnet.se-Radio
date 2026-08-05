@@ -74,6 +74,7 @@ extern void *mainThread(void *arg0);
  *  ======== main ========
  */
 int main(void)
+
 {
     pthread_t           thread,thread1,thread2,threadNET;
     pthread_attr_t      attrs;
@@ -110,7 +111,7 @@ int main(void)
         while (1);
     }
 
-    BaseType_t task_res = xTaskCreate(mainThread, "main", 800, NULL, MAIN_PRIO, NULL);
+    BaseType_t task_res = xTaskCreate(mainThread, "main", 400, NULL, MAIN_PRIO, NULL);
     if (task_res != pdPASS) {
         /* xTaskCreate() failed */
         while (1);
@@ -143,7 +144,7 @@ int main(void)
     IOCPortConfigureSet(IOID_30, IOC_PORT_RFC_GPI0, IOC_INPUT_ENABLE);
 #endif
 
-    task_res = xTaskCreate(vEthIf_task, "Eth IF", 300, NULL, ETH_IF_PRIO, NULL);
+    task_res = xTaskCreate(vEthIf_task, "Eth IF", 200, NULL, ETH_IF_PRIO, NULL);
 
     ethBuf_init();
     ampr_initQueue();

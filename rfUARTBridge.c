@@ -75,8 +75,6 @@ Timer_Params    Timparams;
 #include <ti/devices/cc13x1_cc26x1/driverlib/ioc.h>
 /***** Defines *****/
 #define HAM23CMRADIO 1
-//#define FSK4 1
-//#define SYN4 1
 /* Packet RX Configuration */
 #define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
 //#define MAX_LENGTH             64 /* Max length byte the radio will accept */
@@ -114,6 +112,7 @@ char flashBuf0[0x2000] __attribute__((section(".nvs"), used));
 unsigned int Recd = 0;
 unsigned int Sent = 0;
 unsigned int Bad = 0;
+int TDMASENT = 0;
 
 static uint8_t         input[MAX_LENGTH+2];
 int32_t             UARTwrite_semStatus;
@@ -272,6 +271,15 @@ uint32_t our_overrides[] =
     (uint32_t)0xFFFFFFFF
 };
 
+#ifdef FSK4
+void clearfsk4(void) {
+    RF_cmdPropRadioDivSetup.formatConf.fecMode = 0; // GW 27-jul-26 enable 4fsk
+}
+void setfsk4(void) {
+    RF_cmdPropRadioDivSetup.formatConf.fecMode = 9; // GW 27-jul-26 enable 4fsk
+}
+#endif
+
 TaskHandle_t Radioprog;
 int timestamp;
 
@@ -295,6 +303,7 @@ void mainThread(void *arg0)
     loginit();
     dolog("Amprnet Radio logger  \r\n", 24, 0);
 #endif
+
 //    NVS_Params_init(&nvsParams);
 
     Timer_Params_init(&Timparams);
@@ -428,8 +437,9 @@ void mainThread(void *arg0)
     RF_cmdPropRadioDivSetup.txPower = 0xa73f;   //GW power
 //
 #ifdef FSK4
-    RF_cmdPropRadioDivSetup.formatConf.fecMode = 9; // GW 02-dec-25 enable 4fsk
-    RF_cmdPropRadioDivSetup.modulation.deviation = 200; // 1/3 mod at 2FSK
+//    setfsk4();
+//    RF_cmdPropRadioDivSetup.formatConf.fecMode = 9; // GW 02-dec-25 enable 4fsk
+//    RF_cmdPropRadioDivSetup.modulation.deviation = 166; // 1/3 mod at 2FSK
 #endif
 
 //    RF_cmdPropRadioDivSetup.symbolRate.rateWord = 0xe0000;   //GW speed 1400
@@ -465,6 +475,8 @@ void mainThread(void *arg0)
 
     size_t bytesToRead = MAX_LENGTH-2; //GW 241020
     UART2_read(uart, &input, bytesToRead, NULL);
+//    myslot = 1;
+//    Timer_tdm = 0;
     while(1)
     {
         amprEntry_t amprEntry = ampr_dequeueRadio(100);
@@ -498,27 +510,35 @@ void mainThread(void *arg0)
                 // Send Ethernet packet if any
                 if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                     if((uartlen() != 0)) {
-                          current_defer = 80 + uartlen();
+//                          current_defer = 80 + uartlen(); // not used GW
 //                          GPIO_write(sigpin2,1);
                           RX_OFF();
                           dequeue_uart();
                           RX_ON();
-//                          GPIO_write(sigpin2,0);
                       }
                 }
                 // Send TDMA (whether or not we sent an Ethernet packet)
-                 RX_OFF();
-                 send_tdma_packet();
-                 RX_ON();
-
+                if(!TDMASENT) {
+                  RX_OFF();
+                  send_tdma_packet();
+                  RX_ON();
+                }
+#ifdef TDDEBUG
+                GPIO_write(sigpin4,0);
+#endif
+                TDMASENT = 0;
+#ifdef TDDEBUG
+//                 GPIO_toggle(sigpin5);
+#endif
                  if(role == MASTER)
                  {
                      // Reset the TDMA cycle timer.
-                     Timer_tdm = TDMAPERIOD;
+//                     Timer_tdm = TDMAPERIOD;
+                     Timer_tdm = tdelay;
                      tdmastart_timestamp = Runtime;
                  }
                  myslot = 0;
-                 GPIO_write(sigpin,0);
+//                 GPIO_write(sigpin,0);
             }
         } // If radio RX received
 
@@ -548,23 +568,31 @@ void mainThread(void *arg0)
             // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
                 if((uartlen() != 0)) {
-                      current_defer = 80 + uartlen();
+//                      current_defer = 80 + uartlen(); //not used GW
 //                      GPIO_write(sigpin2,1);
                       RX_OFF();
                       dequeue_uart();
                       RX_ON();
-//                      GPIO_write(sigpin2,0);
                   }
-            }
+              }
             // Send TDMA (whether or not we sent an Ethernet packet)
-             RX_OFF();
-             send_tdma_packet();
-             RX_ON();
-
+            if(!TDMASENT) {
+              RX_OFF();
+              send_tdma_packet();
+              RX_ON();
+            }
+#ifdef TDDEBUG
+                GPIO_write(sigpin4,0);
+#endif
+            TDMASENT = 0;
+#ifdef TDDEBUG
+//                 GPIO_toggle(sigpin5);
+#endif
              if(role == MASTER)
              {
                  // Reset the TDMA cycle timer.
-                 Timer_tdm = TDMAPERIOD;
+//                 Timer_tdm = TDMAPERIOD;
+                 Timer_tdm = tdelay;
                  tdmastart_timestamp = Runtime;
              }
              myslot = 0;
@@ -614,6 +642,9 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         GPIO_toggle(CONFIG_GPIO_RLED);
         ampr_queueRadioRXFromISR();
         Recd++;
+#ifdef  TDDEBUG
+        GPIO_write(sigpin2,1);
+#endif
     }
 }
 
@@ -641,6 +672,12 @@ void TimerCallbackFunction(void) {
             ampr_queueRadioTX(); // Issue a TX slot event when the timer reaches 0 to indicate that it is time to send
     }
 }
+
+#ifdef  TDDEBUG
+void idleindication(void) {
+    GPIO_toggle(sigpin3);
+}
+#endif
 /* unsigned int eints = 0;
 uint8_t pktbuf1[1514];
 void w5500int(uint_least8_t index) {
