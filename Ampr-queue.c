@@ -74,9 +74,6 @@ void ampr_queueRadioRXFromISR()
     if(!xQueueSendFromISR(amprQueue, &entry, 0)) {
         droppedRadioPackets++; // Note: The packet is not actually dropped from the RFQueue
     }
-#ifdef  TDDEBUG
-        GPIO_write(sigpin2,0);
-#endif
 }
 
 void ampr_queueRadioTX()

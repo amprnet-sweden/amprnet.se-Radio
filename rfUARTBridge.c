@@ -51,6 +51,7 @@
 /* RTOS header files */
 #include <FreeRTOS.h>
 #include <task.h>
+//#define UART1 1
 
 Timer_Handle    Timhandle;
 Timer_Params    Timparams;
@@ -86,7 +87,6 @@ Timer_Params    Timparams;
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
 #define NO_PACKET              0
 #define PACKET_RECEIVED        1
-#define Nsize 64                // size of command buffer and get parameter buffer
 
 /*******Global variable declarations*********/
 static RF_Object rfObject;
@@ -167,7 +167,9 @@ static uint8_t packet[MAX_LENGTH + NUM_APPENDED_BYTES]; /* The length byte is st
 
 /***** Function definitions *****/
 static void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e);
+#ifdef UART1
 static void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
+#endif
 static void TimerCallbackFunction(void);
 //static void w5500int(uint_least8_t index);
 
@@ -232,6 +234,7 @@ void SendPacket(uint8_t  *message,char count){
        /* Resume RF RX */
        RX_ON();
 }
+#ifdef UART1
 void SendText(uint8_t *sndbuf,int length) {
        status = UART2_write(uart, sndbuf, length, NULL);
        if (status != UART2_STATUS_SUCCESS) {
@@ -239,6 +242,7 @@ void SendText(uint8_t *sndbuf,int length) {
            while (1);
        }
 }
+#endif
 // Overrides for CMD_PROP_RADIO_DIV_SETUP
 uint32_t our_overrides[] =
 {
@@ -391,7 +395,7 @@ void mainThread(void *arg0)
 //    size_t bytesToRead = MAX_LENGTH;
 
     bytesReadCount = 0;
-
+#ifdef UART1
     /* Initialize UART with callback read mode */
     UART2_Params_init(&uartParams);
     uartParams.baudRate = 115200;
@@ -399,14 +403,15 @@ void mainThread(void *arg0)
     uartParams.readCallback = ReceiveonUARTcallback;
     uartParams.readReturnMode = UART2_ReadReturnMode_PARTIAL;
 
-    init_uart_1();
+
     /* Access UART */
     uart = UART2_open(CONFIG_UART2_0, &uartParams);
 
     /* Print to the terminal that the program has started */
     const char        startMsg[] = "\r\nRF-UART bridge started:\r\n";
     UART2_write(uart, startMsg, sizeof(startMsg), NULL);
-    start_terminal();
+#endif
+    init_uart_1();   start_terminal();
     // Open NVS driver instance
 //    nvsHandle = NVS_open(CONFIG_INTERNAL, &nvsParams);
     get_NVS(buff);
@@ -472,11 +477,12 @@ void mainThread(void *arg0)
     rfPostHandle = RF_postCmd(rfHandle, (RF_Op*)&RF_cmdPropRx,
                                                            RF_PriorityNormal, &ReceivedOnRFcallback,
                                                            RF_EventRxEntryDone);
-
+#ifdef UART1
     size_t bytesToRead = MAX_LENGTH-2; //GW 241020
     UART2_read(uart, &input, bytesToRead, NULL);
 //    myslot = 1;
 //    Timer_tdm = 0;
+#endif
     while(1)
     {
         amprEntry_t amprEntry = ampr_dequeueRadio(100);
@@ -485,6 +491,9 @@ void mainThread(void *arg0)
         /* Check if anything has been received via RF*/
         if(amprEntry.type == AMPR_QUEUE_RX_DATA)      // if !=0 we have a rf packet
         {
+#ifdef  TDDEBUG
+        GPIO_write(sigpin2,0);
+#endif
             /* Get current unhandled data entry */
             currentDataEntry = RFQueue_getDataEntry(); //loads data from entry
 
@@ -509,6 +518,7 @@ void mainThread(void *arg0)
             {
                 // Send Ethernet packet if any
                 if(!dequeue_eth()) { // Send Ethernet packet if any in queue
+#ifdef UART1
                     if((uartlen() != 0)) {
 //                          current_defer = 80 + uartlen(); // not used GW
 //                          GPIO_write(sigpin2,1);
@@ -516,6 +526,7 @@ void mainThread(void *arg0)
                           dequeue_uart();
                           RX_ON();
                       }
+#endif
                 }
                 // Send TDMA (whether or not we sent an Ethernet packet)
                 if(!TDMASENT) {
@@ -567,6 +578,7 @@ void mainThread(void *arg0)
         {
             // Send Ethernet packet if any
             if(!dequeue_eth()) { // Send Ethernet packet if any in queue
+#ifdef UART1
                 if((uartlen() != 0)) {
 //                      current_defer = 80 + uartlen(); //not used GW
 //                      GPIO_write(sigpin2,1);
@@ -574,6 +586,7 @@ void mainThread(void *arg0)
                       dequeue_uart();
                       RX_ON();
                   }
+#endif
               }
             // Send TDMA (whether or not we sent an Ethernet packet)
             if(!TDMASENT) {
@@ -647,7 +660,7 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 #endif
     }
 }
-
+#ifdef UART1
 /* Callback function called when data is received via UART */
 void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status)
 {
@@ -660,6 +673,7 @@ void ReceiveonUARTcallback(UART2_Handle handle, void *buffer, size_t count, void
       queue_uart(buffer,count); // 241024
       status = UART2_read(uart, &input, 253, NULL); //241026
 }
+#endif
 
 void TimerCallbackFunction(void) {
     Runtime++;

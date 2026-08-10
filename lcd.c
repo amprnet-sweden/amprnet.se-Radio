@@ -57,9 +57,7 @@ void LCD_Write_Nibble(uint8_t n) {
   n |= RS | 0x8;
   Expander_Write(n);
   Expander_Write(n | 0x04); // gtoggle e bit
-//  delay(1);
   Expander_Write(n & 0xFB); // toggle e bit
-//  delay(50);
 }
 
 void LCD_Cmd(uint8_t Command) {
@@ -135,21 +133,13 @@ int LCD_Begin(void) {
         return(transaction.status);
     }
     LCD_Cmd(3);
-//    delay(5);
     LCD_Cmd(3);
-//    delay(5);
     LCD_Cmd(3);
-//    delay(5);
     LCD_Cmd(LCD_RETURN_HOME);
-//    delay(5);
     LCD_Cmd(0x20 | (LCD_TYPE << 2));
-//    delay(50);
     LCD_Cmd(LCD_TURN_ON);
-//    delay(50);
     LCD_Cmd(LCD_CLEAR);
-//    delay(50);
     LCD_Cmd(LCD_ENTRY_MODE_SET | LCD_RETURN_HOME);
-//    delay(50);
     return(transaction.status);
 }
 
