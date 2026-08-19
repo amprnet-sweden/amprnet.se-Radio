@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TDDEBUG 1
+//#define TDDEBUG 1
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 #define MEMLOG 1

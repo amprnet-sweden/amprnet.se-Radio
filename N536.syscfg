@@ -73,8 +73,8 @@ GPIO3.$name           = "SPICS";
 GPIO3.mode            = "Output";
 GPIO3.gpioPin.$assign = "boosterpack.5";
 
-GPIO4.$name           = "PAEN";
 GPIO4.mode            = "Output";
+GPIO4.$name           = "PAEN";
 GPIO4.gpioPin.$assign = "boosterpack.24";
 
 GPIO5.$name           = "LNAEN";

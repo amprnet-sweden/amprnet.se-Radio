@@ -420,7 +420,7 @@ void mainThread(void *arg0)
     myaddr = m6;    // set myaddr to last byte of MAC if not saved
     xprint("\n");
     NVS_close(nvsHandle);
-#if defined LCD
+#if defined LCDX
     LcdEna = LCD_Begin();
     if(LcdEna == 0) {
         xprint("LCD ON");

@@ -54,6 +54,7 @@
 #include "eth_if.h"
 #include "Ampr-queue.h"
 #include "ethBuf.h"
+#include "lcd_if.h"
 
 #if defined(CONFIG_LP_CC2674R10_FPGA)
 #include <ti/drivers/power/PowerCC26XX.h>
@@ -69,6 +70,8 @@ extern void *mainThread(void *arg0);
 
 #define MAIN_PRIO 5
 #define ETH_IF_PRIO 4
+#define CMD_PRIO 3
+#define LCD_PRIO 2
 
 /*
  *  ======== main ========
@@ -145,6 +148,8 @@ int main(void)
 #endif
 
     task_res = xTaskCreate(vEthIf_task, "Eth IF", 200, NULL, ETH_IF_PRIO, NULL);
+// and start the LCD task
+    task_res = xTaskCreate(vLcdIf_task, "LCD", 200, NULL, LCD_PRIO, NULL);
 
     ethBuf_init();
     ampr_initQueue();
