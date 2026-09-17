@@ -131,7 +131,8 @@ extern unsigned int bitrate;
 extern unsigned int rxBw;
 extern int EthEna;
 extern int tdelay;
-int parchange;
+int parchange = 0;
+int radio_rec = 0;
 /* Buffer which contains all Data Entries for receiving data.
  * Pragmas are needed to make sure this buffer is 4 byte aligned (requirement from the RF Core) */
 #if defined(__TI_COMPILER_VERSION__)
@@ -655,6 +656,7 @@ void ReceivedOnRFcallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         GPIO_toggle(CONFIG_GPIO_RLED);
         ampr_queueRadioRXFromISR();
         Recd++;
+        radio_rec = 1;				// flag that we got a packet
 #ifdef  TDDEBUG
         GPIO_write(sigpin2,1);
 #endif

@@ -50,11 +50,11 @@
 
 /* Example/Board Header files */
 #include "ti_drivers_config.h"
-//#include "heard.h"
 #include "eth_if.h"
 #include "Ampr-queue.h"
 #include "ethBuf.h"
 #include "lcd_if.h"
+#include "cmd_if.h"
 
 #if defined(CONFIG_LP_CC2674R10_FPGA)
 #include <ti/drivers/power/PowerCC26XX.h>
@@ -150,6 +150,8 @@ int main(void)
     task_res = xTaskCreate(vEthIf_task, "Eth IF", 200, NULL, ETH_IF_PRIO, NULL);
 // and start the LCD task
     task_res = xTaskCreate(vLcdIf_task, "LCD", 200, NULL, LCD_PRIO, NULL);
+
+    task_res = xTaskCreate(vCmdIf_task, "CMD", 200, NULL, CMD_PRIO, NULL);
 
     ethBuf_init();
     ampr_initQueue();

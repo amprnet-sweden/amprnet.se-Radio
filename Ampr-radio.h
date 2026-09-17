@@ -122,6 +122,7 @@ extern uint16_t droppedEthPackets, droppedRadioPackets;
 extern int ebufsused;
 extern bool rebootRequest;
 extern int dhcp_discovery(uint8_t *mac);
+extern int radio_rec;
 typedef enum
 {
 	PORT_ETH = 1,

@@ -508,6 +508,18 @@ void SSD1306_DrawBlock (char shape) {
 	cacheMemLcd[_counter++] = 0xbd;
 	cacheMemLcd[_counter++] = 0xbd;
 	cacheMemLcd[_counter++] = 0xbd;
+	cacheMemLcd[_counter++] = 0xbd;
+}
+void SSD1306_ClearBlock (char shape) {
+//	int i = 0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
+	cacheMemLcd[_counter++] = 0x0;
 }
 
 /**

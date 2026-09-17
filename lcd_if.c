@@ -52,11 +52,11 @@ void vLcdIf_task(void* pvParameters)
         xprint_char(y);
         xprint("\n");
         SSD1306_SetPosition (7, 1);                                     // set position
-        SSD1306_DrawString("-85");
+/*        SSD1306_DrawString("-85");
         SSD1306_DrawBlock(0x3f);
         SSD1306_DrawBlock(0x3f);
         SSD1306_DrawBlock(0x3f);
-        SSD1306_DrawBlock(0x3f);
+        SSD1306_DrawBlock(0x3f); */
 //        SSD1306_DrawLine (3, 3,  60,  3);
 //        SSD1306_DrawLine (3, 3,  3,  120);
 //        SSD1306_DrawLine (60, 3,  60,  120);
@@ -67,7 +67,8 @@ void vLcdIf_task(void* pvParameters)
         SSD1306_DrawString ("Amprnet.se 23 cm TRX");                                // draw string
         SSD1306_SetPosition (33, 5);                                    // set position
         SSD1306_DrawString ("25-aug 2026"); // draw string
-        SSD1306_SetPosition(1,6);
+        SSD1306_SetPosition(1,7);
+        SSD1306_DrawString ("FW "); // draw string
         SSD1306_DrawString (version); // draw string
 
         //        SSD1306_DrawChar(65);
@@ -87,20 +88,48 @@ void vLcdIf_task(void* pvParameters)
         xprint("NO LCD");
     }
 //#endif
-
+//signed char xrssi = -112;
     for( ;; )
     {
         vTaskDelay( xDelay );
         SSD1306_SetPosition (7, 1);                                     // set position
         if (LcdEna == 0) {
+        	if(radio_rec == 0) {	// if we did not get a packet last 200 mS
+        		rssi = -110;		// rssi is not valid
+        	} else {
+        		radio_rec = 0;		// clear it, so we see if packet came in
+        	}
         	if((signed char) rssi > -100) {
         	  sprintf(tmpbuf,"%2d",(signed char) rssi);
-              SSD1306_DrawString (tmpbuf); // draw string
+              SSD1306_SetPosition (0, 1);            // set position
+//              SSD1306_DrawString ("                "); // draw string 16 spaces
+              for(int i =0;i<16;i++){
+                SSD1306_ClearBlock(0x3f);			// erase row 1
+              }
+              SSD1306_SetPosition (0, 1);                                     // set position
+              SSD1306_DrawString (tmpbuf); // draw number string
+              SSD1306_DrawBlock(0x3f);
+              for(int i=-99;i<-22;i=i+6) {
+            	  if(i < (signed char) rssi)
+            	    SSD1306_DrawBlock(0x3f);
+//            	  else
+//            		SSD1306_DrawString(" ");
+              }
+//              if(rssi > -20)
+//            	  xrssi = -110;
         	} else {
+                SSD1306_SetPosition (0, 1);                                     // set position
+                for(int i =0;i<16;i++){
+                  SSD1306_ClearBlock(0x3f);
+                }
+                SSD1306_SetPosition (7, 1);                                     // set position
                 SSD1306_DrawString ("NaN"); // draw string
         	}
+//            xrssi++;
             SSD1306_UpdateScreen (SSD1306_ADDR);                            // update
 //                   smeter(rssi);
+//            xprint(xrssi);
+//            xprint("\n");
         }
     }
 }

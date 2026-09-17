@@ -1,3 +1,5 @@
+#include <FreeRTOS.h>
+#include <task.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -18,7 +20,13 @@
 /* RTOS header files */
 #include <FreeRTOS.h>
 #include <task.h>
-
+void vCmdIf_task(void* pvParameters)
+{
+    const TickType_t xDelay = 200 / portTICK_PERIOD_MS;
+	for(;;) {
+        vTaskDelay( xDelay );
+	}
+}
 UART2_Handle uart1;
 UART2_Params uartParams1;
 
