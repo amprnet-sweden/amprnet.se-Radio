@@ -136,6 +136,7 @@ void xprint_int(int a);
 void xprint_char(char x);
 void xprint_xchar(char x);
 void xprint_long(long v);
+void xprintMAC(uint8_t * mac);
 void init_uart_1(void);
 void checkcommand(void);
 void Send_beacon(void);
@@ -170,13 +171,18 @@ void showtlist(void);
 void get_NVS(uint8_t * buf);
 void smeter(signed char rssi);
 char init_ether(void);
-void proc_tdma_packet(uint8_t * buffer, char len);
 void proc_eth(uint8_t * buf,int count,char port);
 void queue_idle_data(void);
-
+void send_tdma_packet(void);
+void proc_tdma_packet(uint8_t * buffer, char len);
+void tdma_connect(void);
 void ampr_initQueue();
 void getMAC(uint8_t* mac);
 void xprint(char *buf);
 void dump_packet(uint8_t *buf,char blen);
 int dequeue_eth(void);
+void loginit(void);
+void dolog(char *message, int size, int net);
+void setfsk4(void);
+void clearfsk4(void);
 #endif // AMPR_RADIO_H

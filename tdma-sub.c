@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -148,7 +149,7 @@ void dump_tdma(uint8_t * buffer,char count) {
 }
 
 void update_ctab(uint8_t * addr) {
-    int found,i;
+    int i;
     for(i=0;i<MAXSLAVES;i++) {
         if(memcmp(addr,ctab[i].macaddr,6) == 0) {
             ctab[i].ttl = CTABTTL;
@@ -158,7 +159,7 @@ void update_ctab(uint8_t * addr) {
 }
 /* since tdma packets normally comes AFTER a transmission */
 void proc_tdma_packet(uint8_t *buffer, char count) {
-    int i,j,found_empty,enternew,found;
+    int i,j,enternew,found;
     if((role == 0) && (buffer[1] != TINVITE)) { // if we are a slave, match packet for the ID before OUR, this means our slot is next
                                                 // dont do this if invite, sync or ttdm will follow after invite slot
       if(memcmp(&buffer[2],&tlist[myidx-1].macaddr,6) == 0) { // was this the node befor ours?
@@ -402,7 +403,7 @@ void send_tdma_packet(void) {
     uint32_t AONBatMonBatteryVoltageGet();
     uint32_t volt;
     uint8_t bvolt;
-    int i,j,tlen;
+    int i,tlen;
     volt = AONBatMonBatteryVoltageGet();
     volt = (volt * 125) >> 5;
     bvolt = volt/20;
@@ -464,7 +465,6 @@ void send_tdma_packet(void) {
 
 void showtdma(void) {
     char cbuf[12];
-    int volt;
     xprint("TDMA table   MAC      Call   TTL  Lrssi Rrssi  Batt\n");
     for (int i=0;i<TTABSIZE;i++) {
 //  xprint("MAC ");

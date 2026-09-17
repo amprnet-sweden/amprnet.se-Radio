@@ -83,9 +83,9 @@ uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
 #ifdef N536RADIO
-char version[] ="R2 X 2.0u";
+char version[] ="R2 X 2.0x";
 #else
-char version[] ="R1 X 2.0u";
+char version[] ="R1 X 2.0x";
 #endif
 //settings
 int listener = 0;
@@ -487,89 +487,6 @@ int dbgptr;
 /* process tail packet, and check that we agree on sequence, drop is segments dropped on receive */
 char rdrop = 0;
 char droppkg;
-/*
- void proc_type7(uint8_t *buffer, int len, char drop) {
-    his_R = buffer[4];
-    his_S = buffer[5];
-    memcpy(last_radio, &buffer[6],6);  // save sender of this type7
-    if(drop == 0) {  // this packet is valid
-//        my_R = his_S;   // this is where good packets are incremented
-        if((rdrop == 1) && (droppkg == his_S)) {
-            if(debug & 32) {
-              xprint("Rsyn + repair\n");
-            }
-            rexmitOK++;     // inc number succesful retransmits
-            rdrop = 0;      // the "remember previous drop indicator"
-            my_R = his_S;
-        }
-        my_R = his_S;       // we are now in synch
-    } else {    // at least one segment was dropped, and packet is not valid
-        rdrop = 1;
-        droppkg = his_S;    // save number dropped
-        if(debug & 32) {
-          xprint("Rdrop ");
-          xprint_char(his_S);
-          xprint("\n");
-        }
-    }
-    if(buffer[1] == ACK) {  // an ack and something with rnum vs snum
-//      my_R = his_S;     // resynchronize
-      if(debug & 64) {
-//        xprint("\n");
-        xprint("ACK rcv his R ");
-        xprint_char(his_R);
-        xprint(" my S ");
-        xprint_char(my_S);
-        xprint(" my R ");
-        xprint_char(my_R);
-        xprint(" his S ");
-        xprint_char(his_S);
-        xprint(" len ");
-        xprint_int(len);
-        for(int i = 6;i<12;i++) {
-            xprint(" ");
-            xprint_xchar(buffer[i]);
-        }
-        xprint("\n");
-      }
-      if(his_R != my_S ) { // if his received is NOT my last sent we need to retransmit
-
-//          xprint("He lost ");
-//          xprint_char(my_S);
-//          xprint("\n");
-//          if(my_S - his_R == 1) {
-          if (retrena) retran = 1;
-          if(ampr_ethQueueEmpty()) {
-//              xprint("Send q empty\n");
-              queue_idle_data();      // make an idle message
-          }
-          queue_idle_data();      // make an idle message */
-/*          if(debug & 32) {
-            xprint("Got Ret RQ ");
-            xprint_char(his_R + 1);
-            xprint(" Diff ");
-            xprint_char(my_S - his_R);
-            xprint("\n");
-          }
-      }
-
-    } // ACK end */
-/*
- * if we got a REX request find saved packet and send again
- */
-/*    if(buffer[1] == REX) {
-//        retran = 1;
-        wantednum = his_R;
-        if( debug & 8 ) {
-          xprint("REX Rcv his R ");
-          xprint_char(his_R);
-          xprint(" his_S ");
-          xprint_char(his_S);
-          xprint("\n");
-        }
-    }
-} */
-// char old_R;
 
 uint8_t xmitbuffer[1514];
 int ecount;
@@ -577,6 +494,8 @@ int offset = 0;
 char expseg = 0;
 char dropped = 0;
 char dropsent = 0;
+
+
 void send_ether(unsigned char * buffer, char length) {  /* reassemble radio packets into an ethernet frame, and if ok send it */
     int count = length;
     char seg;

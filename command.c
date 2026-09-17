@@ -20,13 +20,6 @@
 /* RTOS header files */
 #include <FreeRTOS.h>
 #include <task.h>
-void vCmdIf_task(void* pvParameters)
-{
-    const TickType_t xDelay = 200 / portTICK_PERIOD_MS;
-	for(;;) {
-        vTaskDelay( xDelay );
-	}
-}
 UART2_Handle uart1;
 UART2_Params uartParams1;
 
@@ -86,6 +79,40 @@ void start_terminal(void) {
     cmdptr =0;
     cmdline[cmdptr]=0;
     UART2_read(uart1, &cc, 1, NULL);    // issue a starting read
+}
+
+void vCmdIf_task(void* pvParameters)
+{
+    const TickType_t xDelay = 20 / portTICK_PERIOD_MS;
+
+    for(;;) {
+        vTaskDelay( xDelay );
+        if(cc != 0) {
+            checkcommand();
+            cc = 0;
+        }
+        if(Timer_per == 0) {
+            Timer_per = 200;     //set to 200 mS
+            if(--onesec == 0) {
+                onesec = 5;
+//                 xprint("TDMA ttl\n");
+                tdma_ttl();
+                if(autoconnect && (cstate == CIDLE)) {
+                    cstate = CONNECTING;
+                }
+            }
+#ifdef DHCPC
+            if(--dhcptime == 0) {
+                dhcptime = 150; // every 30 seconds
+                if((my_ip[0] | my_ip[1] | my_ip[2] | my_ip[3] ) == 0) {
+                  dhcp_discovery(&my_hwaddr);
+                  xprint("Sent dhcp req \n");
+                }
+            }
+#endif
+        }
+
+    }
 }
 
 void parse_cmd(char *cline, int cnt) {
@@ -339,29 +366,6 @@ void parse_cmd(char *cline, int cnt) {
         } else {
            xprint("You're master\n");
         }
-/*    } else if (strcmp(cline, ("listen")) == 0) {
-        if(argc == 2) {
-          listener = atoi(argv[1]);
-        }
-        xprint("Listen mode = ");
-        xprint_int(listener);
-        xprint("\n"); */
-    } else if (strcmp(cline, ("re")) == 0) {
-        if(argc == 2) {
-          retrena = atoi(argv[1]);
-        }
-        xprint("Retransmit = ");
-        xprint_int(retrena);
-        xprint("\n");
-    } else if (strcmp(cline, ("beacon")) == 0) {
-        Timer0 = 60000;
-        if(argc == 2) {
-            Becount = atoi(argv[1]);
-            xprint("Starting beacon\n");
-        } else {
-            Becount = 0;
-            xprint("Stopping beacon\n");
-        }
     } else if (strcmp(cline, ("zero")) == 0) {
         ESpkts = 0;
         ERpkts = 0;
@@ -419,17 +423,6 @@ void parse_cmd(char *cline, int cnt) {
             xprint("HDX ");
         }
         xprint("\n");
-
-#endif
-#ifdef LCDX
-    } else if (strcmp(cline, ("lcd")) == 0) {
-//        char blocks[] = "==========>>";
-        if(LcdEna == 0) {
-        LCD_Print(version);
-        delay(1);
-         } else {
-            xprint("LCD not present\n");
-        }
 
 #endif
     } else if (strcmp(cline, ("count")) == 0) {
@@ -699,36 +692,6 @@ void checkcommand(void) {
                 Timer0 = 60000;
                 Txcount--;
             }
-        }
-/*        if(Becount) {
-            if(Timer0 == 0) {
-                Timer0 = 60000;
-                Becount--;
-                Send_beacon();
-            }
-        } */
-        if(Timer_per == 0) {
-            Timer_per = 200;     //set to 200 mS
-            if (LcdEna == 0) {
-//                   smeter(rssi);
-            }
-            if(--onesec == 0) {
-                onesec = 5;
-//                 xprint("TDMA ttl\n");
-                tdma_ttl();
-                if(autoconnect && (cstate == CIDLE)) {
-                    cstate = CONNECTING;
-                }
-            }
-#ifdef DHCPC
-            if(--dhcptime == 0) {
-                dhcptime = 150; // every 30 seconds
-                if((my_ip[0] | my_ip[1] | my_ip[2] | my_ip[3] ) == 0) {
-                  dhcp_discovery(&my_hwaddr);
-                  xprint("Sent dhcp req \n");
-                }
-            }
-#endif
         }
     }
 }

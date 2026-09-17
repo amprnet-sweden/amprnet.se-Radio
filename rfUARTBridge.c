@@ -114,7 +114,7 @@ unsigned int Sent = 0;
 unsigned int Bad = 0;
 int TDMASENT = 0;
 
-static uint8_t         input[MAX_LENGTH+2];
+//static uint8_t         input[MAX_LENGTH+2];
 int32_t             UARTwrite_semStatus;
 int_fast16_t        status = UART2_STATUS_SUCCESS;
 volatile uint8_t packetRxCb;
@@ -636,7 +636,7 @@ void mainThread(void *arg0)
         }
 #endif
 
-        checkcommand();
+//        checkcommand();
 
         // Reboot request from shell command
         if(rebootRequest)

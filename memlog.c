@@ -17,7 +17,7 @@ void loginit(void) {
 	logptr = &logbuf[0];
 }
 
-void dolog(uint8_t *message, int size, int net) {
+void dolog(char *message, int size, int net) {
     uint8_t secs,millis,len;
     char timefield[10];
     secs = Runtime/1000;

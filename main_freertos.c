@@ -79,8 +79,8 @@ extern void *mainThread(void *arg0);
 int main(void)
 
 {
-    pthread_t           thread,thread1,thread2,threadNET;
-    pthread_attr_t      attrs;
+//    pthread_t           thread,thread1,thread2,threadNET;
+//    pthread_attr_t      attrs;
 //    TaskHandle_t        Radio_h,Eth_h,Cmd_h;
     struct sched_param  priParam;
     int                 retc;
@@ -96,24 +96,22 @@ int main(void)
     GPIO_init();
 
     /* Set priority and stack size attributes */
-    pthread_attr_init(&attrs);
+//    pthread_attr_init(&attrs);
     priParam.sched_priority = 7;
 
-    detachState = PTHREAD_CREATE_DETACHED;
-    retc = pthread_attr_setdetachstate(&attrs, detachState);
-    if (retc != 0) {
+//    detachState = PTHREAD_CREATE_DETACHED;
+//    retc = pthread_attr_setdetachstate(&attrs, detachState);
+//    if (retc != 0) {
         /* pthread_attr_setdetachstate() failed */
-        while (1);
-    }
+//        while (1);
+//    }
+//    pthread_attr_setschedparam(&attrs, &priParam);
 
-    pthread_attr_setschedparam(&attrs, &priParam);
-
-    retc |= pthread_attr_setstacksize(&attrs, THREADSTACKSIZE);
-    if (retc != 0) {
+//    retc |= pthread_attr_setstacksize(&attrs, THREADSTACKSIZE);
+//    if (retc != 0) {
         /* pthread_attr_setstacksize() failed */
-        while (1);
-    }
-
+//        while (1);
+//    }
     BaseType_t task_res = xTaskCreate(mainThread, "main", 400, NULL, MAIN_PRIO, NULL);
     if (task_res != pdPASS) {
         /* xTaskCreate() failed */
@@ -151,7 +149,7 @@ int main(void)
 // and start the LCD task
     task_res = xTaskCreate(vLcdIf_task, "LCD", 200, NULL, LCD_PRIO, NULL);
 
-    task_res = xTaskCreate(vCmdIf_task, "CMD", 200, NULL, CMD_PRIO, NULL);
+    task_res = xTaskCreate(vCmdIf_task, "CMD", 300, NULL, CMD_PRIO, NULL);
 
     ethBuf_init();
     ampr_initQueue();
