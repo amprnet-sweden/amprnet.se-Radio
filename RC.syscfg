@@ -124,8 +124,8 @@ GPIO13.$name           = "sigpin5";
 GPIO13.gpioPin.$assign = "boosterpack.5";
 
 I2C1.$name              = "CONFIG_I2C_0";
-I2C1.i2c.sdaPin.$assign = "boosterpack.32";
-I2C1.i2c.sclPin.$assign = "boosterpack.31";
+I2C1.i2c.sdaPin.$assign = "boosterpack.31";
+I2C1.i2c.sclPin.$assign = "boosterpack.32";
 
 NVS1.$name               = "CONFIG_INTERNAL";
 NVS1.internalFlash.$name = "ti_drivers_nvs_NVSCC26XX0";

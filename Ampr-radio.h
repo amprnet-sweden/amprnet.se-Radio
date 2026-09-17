@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-//#define TDDEBUG 1
+#define TDDEBUG 1
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 #define MEMLOG 1
@@ -22,7 +22,8 @@
 #define TYPE_MASK 0xf0  // there is protocol space for 16 packet types
 #define FINFLAG 0x8
 #define ETHERNET 1
-#define LCD
+//#define LCD
+#define OLED
 #define TSIZE 40
 //#define SPISPEED 16000000
 #define FSK4 1
@@ -68,7 +69,6 @@
 
 #define CC1314R10
 #define Nsize 100
-
 
 #define UBCOUNT 8
 #define EBCOUNT 40      // number of buffers in queue
@@ -156,8 +156,11 @@ void RX_OFF(void);
 void RF_XMIT(uint8_t *message, char count);
 void sendack(char dseg);
 void queue_eth(uint8_t *buffer,int count,uint8_t pnum);
+#ifdef OLED
+#else
 int LCD_Begin(void);
 void LCD_Print(char * string);
+#endif
 void SendText(uint8_t *buf, int count);
 void settdma(uint8_t * macaddr, uint8_t * call, uint8_t rssi, uint8_t volt);
 void showtdma();

@@ -1,4 +1,5 @@
-#include "lcd.h"
+//#include "lcd.h"
+#include "oled.h"
 char smeter_strings[12][18] = {
 			"-95>            \0",
 			"-90=>           \0",
@@ -16,6 +17,9 @@ void smeter(signed char rssi) {
 	signed char i = (rssi+95)/5;
 	if (i<0) i=0;
 	if(i>11) i = 11;
-    LCD_Goto(1,2);
-	LCD_Print(smeter_strings[i]);
+#ifdef OLED
+#else
+//    LCD_Goto(1,2);
+//	LCD_Print(smeter_strings[i]);
+#endif
 }

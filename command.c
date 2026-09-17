@@ -413,7 +413,7 @@ void parse_cmd(char *cline, int cnt) {
         xprint("\n");
 
 #endif
-#ifdef LCD
+#ifdef LCDX
     } else if (strcmp(cline, ("lcd")) == 0) {
 //        char blocks[] = "==========>>";
         if(LcdEna == 0) {

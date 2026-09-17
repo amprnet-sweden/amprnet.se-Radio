@@ -30,7 +30,10 @@ mailny this contains the command interpreter, and various functions called by th
 #include "ti_drivers_config.h"
 #include "Ampr-radio.h"
 // #include "heard.h" // obsolete
+#ifdef OLED
+#else
 #include "lcd.h"
+#endif
 #include "tdma.h"
 #include "ethBuf.h"
 #include "eth_if.h"
@@ -80,9 +83,9 @@ uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
 #ifdef N536RADIO
-char version[] ="R2 X 2.0t";
+char version[] ="R2 X 2.0u";
 #else
-char version[] ="R1 X 2.0t";
+char version[] ="R1 X 2.0u";
 #endif
 //settings
 int listener = 0;
@@ -756,11 +759,11 @@ void whatpacket(uint8_t * buffer, char length) {
         break;
     case PTDMA: {
 #ifdef TDDEBUG
-        GPIO_write(sigpin5,1);
+//        GPIO_write(sigpin5,1);
 #endif
         proc_tdma_packet(buffer,length);
 #ifdef TDDEBUG
-        GPIO_write(sigpin5,0);
+//        GPIO_write(sigpin5,0);
 //        dolog("TR  \r\n", 6, 0);
 #endif
         break; }
