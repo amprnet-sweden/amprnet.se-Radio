@@ -250,9 +250,9 @@ uint8_t SSD1306_Send_Command (uint8_t command)
   wdata[1] = command;
 //    Expander_Write(0);
   I2C_transfer(OLEDHandle, &transaction);
-  if(transaction.status != 0) {
+//  if(transaction.status != 0) {
       return(transaction.status);
-  }
+//  }
 }
 
 /**

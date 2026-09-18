@@ -285,35 +285,31 @@ void proc_tdma_packet(uint8_t *buffer, char count) {
               settdma(&buffer[2],&buffer[8],buffer[20],volt);   // update tdma table
               memcpy(&tlist[0].macaddr, &buffer[22],30);          // save as recent tdma list
               if(role == 0) {                               // if I am a slave
-                  found = 0;
+                  found = 0;                                //assume not in tlst
                   for(i=0;i<MAXSLAVES+1;i++) {                     // look through synch packet to se if I am there, in that I am connected
-                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for y id in tist
-                      if((j == 0) && (cstate  == CONNECTING)) {                // if I am, I am conneclted
-                       xprint("Connected index ");
-                       xprint_int(i);
-                       myidx = i;                                     // this is my slave index
-                       xprint("\n");
-                       found =1;
-                       cstate = CONNECTED;                                    // change state to connected
-                      }
-                      if((found == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
-                          xprint("Disc tlst\n");
-/*                          if(autoconnect)
-                              cstate = 1;
-                          else */
-                              cstate = CIDLE; // state is now idle
+                      j = memcmp(&tlist[i].macaddr,my_hwaddr,6);   // check for my id in tist
+                      if(j==0) {
+                          found = 1;
+                          myidx = i;                                     // this is my slave index
                       }
                   }
+                  if((found == 1) && (cstate  == CONNECTING)) {                // if I am, I am conneclted
+                       cstate = CONNECTED;                                    // change state to connected
+                       xprint("Connected index ");
+                       xprint_int(myidx);
+                       xprint("\n");
+                   }
+                   if((found == 0)  && (cstate >= 2) ) {      //this disconnect us, either we did disc or we dropped out of ctab
+                      xprint("Disc tlst\n");
+                      cstate = CIDLE; // state is now idle
+                    }
               } // slaves only
           }
           break;
           case TINVITE: {
               if(role == SLAVE) {
-//              GPIO_write(sigpin3,1);
-/*              if((autoconnect) && (cstate == 0))
-                  cstate = 1; */
               i = rand() & 3;
-              if((cstate == CONNECTING)&& i==3) {       // probability to connect 25%
+              if((cstate == CONNECTING) && i==3) {       // probability to connect 25%
 //                xprint("INVITE rcvd");
                   myslot = 1;
                 RX_OFF();
@@ -493,15 +489,15 @@ void showtdma(void) {
 }
 void showtlist(void) {
 //    struct tdmalist *t;
-    xprintMAC(&tlist[0].macaddr);
+    xprintMAC(&tlist[0].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[1]);
+    xprintMAC(&tlist[1].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[2]);
+    xprintMAC(&tlist[2].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[3]);
+    xprintMAC(&tlist[3].macaddr[0]);
     xprint("\n");
-    xprintMAC(&tlist[4]);
+    xprintMAC(&tlist[4].macaddr[0]);
     xprint("\n");
 }
 void showctab(void) {

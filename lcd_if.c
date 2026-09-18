@@ -85,7 +85,7 @@ void vLcdIf_task(void* pvParameters)
 #endif
 //        delay(1);
     } else {
-        xprint("NO LCD");
+        xprint("NO LCD\n");
     }
 //#endif
 //signed char xrssi = -112;

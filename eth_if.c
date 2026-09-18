@@ -72,6 +72,8 @@ void vEthIf_task(void* pvParameters)
         {
             // Send data to Ethernet chip
             w5500sendFrame(buffer.buffer, buffer.bytesUsed);
+/*            if(debug & 16) xprint("ET \n");
+            dump_packet(buffer.buffer,buffer.bytesUsed); */
             ethBuf_free(&buffer);
         }
 

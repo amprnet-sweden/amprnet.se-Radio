@@ -90,7 +90,7 @@ GPIO7.mode            = "Output";
 GPIO7.gpioPin.$assign = "boosterpack.28";
 
 I2C1.$name              = "CONFIG_I2C_0";
-I2C1.i2c.sdaPin.$assign = "boosterpack.37";
+I2C1.i2c.sdaPin.$assign = "boosterpack.8";
 I2C1.i2c.sclPin.$assign = "boosterpack.38";
 
 NVS1.$name               = "CONFIG_INTERNAL";

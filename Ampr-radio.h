@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TDDEBUG 1
+// #define TDDEBUG 1
 /* ampr radio definitions */
 #define HAM23CMRADIO 1
 #define MEMLOG 1
@@ -185,4 +185,8 @@ void loginit(void);
 void dolog(char *message, int size, int net);
 void setfsk4(void);
 void clearfsk4(void);
+int dhcp_discovery(uint8_t *mac);
+uint8_t getPHYCFGR(void);
+void tdma_ttl(void);
+void showlog(void);
 #endif // AMPR_RADIO_H
