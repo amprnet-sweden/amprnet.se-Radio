@@ -83,9 +83,9 @@ uint8_t my_hwaddr[6];
 char rssi = 0x92;       // -110 dBm
 char my_call[12] = {"MY0CALL-001\0"};
 #ifdef N536RADIO
-char version[] ="R2 X 2.0y";
+char version[] ="R2 v2.0";
 #else
-char version[] ="R1 X 2.0y";
+char version[] ="R1 v2.0";
 #endif
 //settings
 int listener = 0;
