@@ -689,7 +689,8 @@ void TimerCallbackFunction(void) {
     }
 }
 
-#ifdef  TDDEBUG
+// Idle hook only used on RC radio for now
+#ifndef N536RADIO
 void idleindication(void) {
     GPIO_toggle(sigpin3);
 }
