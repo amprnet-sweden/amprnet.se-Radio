@@ -59,15 +59,15 @@ int rexmitOK = 0;
 int rexrqctr =0;
 
 
-static void ReceiveonUARTcallbac1(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
+//static void ReceiveonUARTcallbac1(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
 /* Initialize UART1 with callback read mode GW */
 
 void init_uart_1(void) {
 UART2_Params_init(&uartParams1);
 uartParams1.baudRate = 115200;
-uartParams1.readMode = UART2_Mode_CALLBACK;
-uartParams1.readCallback = ReceiveonUARTcallbac1;
-uartParams1.readReturnMode = UART2_ReadReturnMode_PARTIAL;
+//uartParams1.readMode = UART2_Mode_CALLBACK;
+//uartParams1.readCallback = ReceiveonUARTcallbac1;
+//uartParams1.readReturnMode = UART2_ReadReturnMode_PARTIAL;
 uart1 = UART2_open(CONFIG_UART2_1, &uartParams1);
 }
 
@@ -78,24 +78,37 @@ void start_terminal(void) {
     xprint("\n");
     cmdptr =0;
     cmdline[cmdptr]=0;
-    UART2_read(uart1, &cc, 1, NULL);    // issue a starting read
+//    UART2_read(uart1, &cc, 1, NULL);    // issue a starting read
 }
 
 void vCmdIf_task(void* pvParameters)
 {
-    const TickType_t xDelay = 20 / portTICK_PERIOD_MS;
+	int status;
+
+//    const TickType_t xDelay = 20 / portTICK_PERIOD_MS;
 
     for(;;) {
-        vTaskDelay( xDelay );
-        if(cc != 0) {
-            checkcommand();
-            cc = 0;
-        }
-        if(Timer_per == 0) {
+ //       vTaskDelay( xDelay );
+  	    status = UART2_readTimeout(uart1,&cc,1,&cmdbytes,2000);
+  	    if(status == 0 ) {
+          cmdline[cmdptr++]=cc;
+          cmdline[cmdptr] = 0;
+          UART2_write(uart1,&cc,1,NULL); // echo one character
+          if(cc == 0x0d) {               //if it was a cr
+              cc = 0x0a;
+              UART2_write(uart1,&cc,1,NULL); //echo a lf as well
+              cmdptr--;                      // ERASE the cr
+              cmdline[cmdptr] = 0;           // and terminate string
+              if (cmdline[0] != 0)
+                  parse_cmd(cmdline, cmdptr);    // send off command
+              cmdptr = 0;                    // empty cmdline
+              xprint("$ ");
+          }
+          cmdbytes = 0;
+          if(Timer_per == 0) {
             Timer_per = 200;     //set to 200 mS
             if(--onesec == 0) {
                 onesec = 5;
-//                 xprint("TDMA ttl\n");
                 tdma_ttl();
                 if(autoconnect && (cstate == CIDLE)) {
                     cstate = CONNECTING;
@@ -110,11 +123,13 @@ void vCmdIf_task(void* pvParameters)
                 }
             }
 #endif
-        }
+          } // timer_per
 
-    }
+        } else
+        	if(status != UART2_STATUS_ETIMEOUT)
+        	        xprint_int(status);
+     }
 }
-
 void parse_cmd(char *cline, int cnt) {
     int argc;
     int val;
@@ -152,7 +167,7 @@ void parse_cmd(char *cline, int cnt) {
           "\r\n"
           "mode :"
           "\r\n"
-          "beacon :"
+  	  	  "beacon :"
           "\r\n"
           "save :"
            "\r\n"
@@ -508,7 +523,7 @@ void parse_cmd(char *cline, int cnt) {
          new_synch = 1;
 #ifdef DHCPC
     } else if (strcmp(cline, ("dhcp")) == 0) {
-        dhcp_discovery( &my_hwaddr);
+        dhcp_discovery( &my_hwaddr[0]);
 #endif
     } else if (strcmp(cline, ("tdt")) == 0) {
          showtdma();
@@ -668,9 +683,12 @@ void parse_cmd(char *cline, int cnt) {
           }
     }
 }
-
+/*
 void checkcommand(void) {
-    if (cmdbytes != 0) { // we have a cmdline in progress
+//    if (cmdbytes != 0) { // we have a cmdline in progress
+	while(cmdbytes == 0) {
+	  UART2_read(uart1,&cc,1,&cmdbytes);
+	}
         cmdline[cmdptr++]=cc;
         cmdline[cmdptr] = 0;
         UART2_write(uart1,&cc,1,NULL); // echo one character
@@ -685,17 +703,17 @@ void checkcommand(void) {
             xprint("$ ");
         }
         cmdbytes = 0;
-        UART2_read(uart1, &cc, 1, NULL);    // issue a starting read
-    } else {    // cmdbytes == 0
-        if(Txcount) {
-            if(Timer0 == 0) {
-                Timer0 = 60000;
-                Txcount--;
-            }
-        }
+//        UART2_read(uart1, &cc, 1, NULL);    // issue a starting read
+//    } else {    // cmdbytes == 0
+//        if(Txcount) {
+//            if(Timer0 == 0) {
+//                Timer0 = 60000;
+//                Txcount--;
+//            }
+//        }
     }
-}
-
+//}
+*/
 void xprint(char *buf) {
     int cnt = strlen(buf);
     UART2_write(uart1,buf,cnt,NULL);
@@ -845,11 +863,11 @@ void xprint_xchar(char x) {
 }
 
 
-void ReceiveonUARTcallbac1(UART2_Handle uart1, void *buffer, size_t count, void *userArg, int_fast16_t status)
-{
-    if (status == UART2_STATUS_SUCCESS) {
-        cmdbytes = count;
-    }   else {
-        while (1) {}
-    }
-}
+//void ReceiveonUARTcallbac1(UART2_Handle uart1, void *buffer, size_t count, void *userArg, int_fast16_t status)
+//{
+//    if (status == UART2_STATUS_SUCCESS) {
+//        cmdbytes = count;
+//    }   else {
+//        while (1) {}
+//    }
+//}
