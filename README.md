@@ -6,26 +6,24 @@ This is an attempt to create a 23 cm packet radio platform using a Texas Instrum
 operate in the 1076 - 1315 Mhz band, however there is very little support from TI for this frequency range. 
 
 After successfully programming the radio to this band some preliminary code has been written that implements a serial to RF bridge, where two radios can be set 
-up to work as a virtual serial wire, and ethernet to ethernet bridging using a w5500 ethernet module.
+up to work ethernet to ethernet bridging using a w5500 ethernet module.
 
 The current implementation brings out two serial channels where one is intended for "data" transport and one is intended for a "command terminal" where
 the radio configuration can be changed. There is also a SPI channel to connect an SPI to Ethernet module. The radio is powered by 3.3 V, or 5 V via 
 a regulator.
 
-There is also a I2C port where a 2x16 or 4x20 character LCD can be connected, useful when doing mobile survey.
+There is also a I2C port where an OLED display can be connected, displaying status an an S meter, useful when doing mobile survey.
 
 A "breakout" PCB has been made, that brings out these interfaces to wire wrap pins similar to arduinos and the like. There is a 3.3V regulator on board.
 
-Power output is +12 dBm, and the radio speed is currently 1 Mbps.
+Power output of the "R1" is +12 dBm, and the radio speed is currently up to 2 Mbps. Power output of the "R2" radio is +30 dBm. The R2 is 5 V only.
 
 Up until now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
 NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK or other new usage of the 23 cm HAM radio band.
 
-Version 0.93b is now current at 2025/04/15 and allows:
+Version 2.0 is now current at 2026/09/21 and allows:
 
-1  Serial to serial over a 23 cm channel
-
-2  Ethernet to ethernet bridging
+Ethernet to ethernet bridging over a 23 cm radio channel of 1.5 Mhz.
 
 # Why build an amprnet radio?
 
@@ -57,11 +55,16 @@ Compile and test that you get a valid image.
 
 Replace all files from this git onto that directory.
 
-Rebuild, and you should have the V 0.93b firmware. 
+Set the project properties Configuration to Debug_RC for the "R1" radio and to Debug_N536 for the "R2" radio.
 
-NOTE!! this code is based on one "big loop", and we really need a RTOS, since that prevents blocking I/O to lock the CPU up. The reason for doing this first version in
-this ugly way, is simply "KISS", "Keep it simple stupid". This causes a *real* problem with Ethernet performance, so next version will be RTOS based. The main loop executes
-in 17 uS when nothing happens, so we get decent latency, but it is unknown what percentage we "waste" in various blocking I/O's. Most input is based on callbacks.
+Rebuild, and you should have the V 2.0 firmware. 
 
+NOTE!! this code is based FreeRTOS.
+
+UPDATE for V 2.0
+
+Many things have improved. The code is now based on FreeRTOS, and speed has improved. The current maximum "mode" is 4FSK @ 1 Mbps, reaching 2 Mbps raw rate. This manifests
+itself in that you can reach about 1.2 Mbps usng iperf3 between two linux machines. Also, the "user link" is now Ethernet, and the radio in combination with a W5500 board
+bridges Ethernet traffic between two or more radios.
 
 Gullik / SM4FBD
