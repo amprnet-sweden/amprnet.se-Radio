@@ -16,6 +16,11 @@ There is also a I2C port where an OLED display can be connected, displaying stat
 
 A "breakout" PCB has been made, that brings out these interfaces to wire wrap pins similar to arduinos and the like. There is a 3.3V regulator on board.
 
+There are two different radios built for this firmware, the "R1" that is a 50x50 mm PCB with pins, a voltage regulator and two leds, It has two serial ports and
+an interface for a W5500 Ethernet module. This module is he most universal,
+
+There is also the "R2" that is built on a 50x70 mm PCB with pins, a voltage regulator and two leds. It also has two serial ports, and incorporates a +30 dBm amlifier.
+
 Power output of the "R1" is +12 dBm, and the radio speed is currently up to 2 Mbps. Power output of the "R2" radio is +30 dBm. The R2 is 5 V only.
 
 Up until now, focus has been on creating code that operate the radio and the peripherals in a correct fashion, with the hope this could lead to a 
