@@ -28,7 +28,7 @@ NPR-23 radio similar to the NPR-70 radio by Guillaume / F4HDK or other new usage
 
 Version 2.0 is now current at 2026/09/21 and allows:
 
-Ethernet to ethernet bridging over a 23 cm radio channel of 1.5 Mhz.
+Ethernet to ethernet bridging over a 23 cm radio channel of 1.25 Mbps.
 
 # Why build an amprnet radio?
 
