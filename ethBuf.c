@@ -1,21 +1,3 @@
-
-/*
- * Copyright (C) 2024 AMPRNet Sweden
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */ 
 #include "ethBuf.h"
 #include "Ampr-radio.h"
 #include <FreeRTOS.h>
@@ -51,6 +33,9 @@ void ethBuf_get(ethBufHandle_t* buf) {
     if(result != pdPASS) {
         buf->buffer = NULL;
         buf->bytesUsed = 0;
+    } else {
+        if(ampr_poolSize() < poolmin)
+        	poolmin = ampr_poolSize();
     }
 }
 
@@ -62,4 +47,8 @@ void ethBuf_free(ethBufHandle_t* buf) {
         buf->bytesUsed = 0;
         buf->packetNumber = 0;
     }
+}
+uint16_t ampr_poolSize() {
+//    return (uint16_t)uxQueueMessagesWaiting(bufferPool);
+    return uxQueueMessagesWaiting(bufferPool);
 }
