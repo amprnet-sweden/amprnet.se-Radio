@@ -1,21 +1,3 @@
-
-/*
- * Copyright (C) 2024 AMPRNet Sweden
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */ 
 #include <FreeRTOS.h>
 #include <task.h>
 #include <stdio.h>
@@ -76,6 +58,10 @@ int rexmitctr = 0;
 int rexmitOK = 0;
 int rexrqctr =0;
 
+int poolmin = EBCOUNT;
+int radiomax = 0;
+int ethmax = 0;
+
 
 //static void ReceiveonUARTcallbac1(UART2_Handle handle, void *buffer, size_t count, void *userArg, int_fast16_t status);
 /* Initialize UART1 with callback read mode GW */
@@ -106,8 +92,8 @@ void vCmdIf_task(void* pvParameters)
 //    const TickType_t xDelay = 20 / portTICK_PERIOD_MS;
 
     for(;;) {
- //       vTaskDelay( xDelay );
   	    status = UART2_readTimeout(uart1,&cc,1,&cmdbytes,2000);
+//  	    status = UART2_read(uart1,&cc,1,&cmdbytes);
   	    if(status == 0 ) {
           cmdline[cmdptr++]=cc;
           cmdline[cmdptr] = 0;
@@ -121,32 +107,34 @@ void vCmdIf_task(void* pvParameters)
                   parse_cmd(cmdline, cmdptr);    // send off command
               cmdptr = 0;                    // empty cmdline
               xprint("$ ");
+              cmdbytes = 0;
           }
-          cmdbytes = 0;
-          if(Timer_per == 0) {
-            Timer_per = 200;     //set to 200 mS
-            if(--onesec == 0) {
+  	    } else {
+        	if(status != UART2_STATUS_ETIMEOUT)
+        	        xprint_int(status);
+  	    }
+//        cmdbytes = 0;
+        if(Timer_per == 0) {
+          Timer_per = 200;     //set to 200 mS
+          if(--onesec == 0) {
                 onesec = 5;
                 tdma_ttl();
                 if(autoconnect && (cstate == CIDLE)) {
                     cstate = CONNECTING;
                 }
             }
+        }
 #ifdef DHCPC
-            if(--dhcptime == 0) {
+        if(--dhcptime == 0) {
                 dhcptime = 150; // every 30 seconds
                 if((my_ip[0] | my_ip[1] | my_ip[2] | my_ip[3] ) == 0) {
                   dhcp_discovery(&my_hwaddr);
                   xprint("Sent dhcp req \n");
                 }
-            }
+         }
 #endif
-          } // timer_per
-
-        } else
-        	if(status != UART2_STATUS_ETIMEOUT)
-        	        xprint_int(status);
-     }
+//          } // timer_per
+     } //for()
 }
 void parse_cmd(char *cline, int cnt) {
     int argc;
@@ -420,6 +408,10 @@ void parse_cmd(char *cline, int cnt) {
         rexrqctr = 0;
         quedepth= 0;
         quemax = 0;
+        poolmin = EBCOUNT;
+        radiomax = 0;
+        ethmax = 0;
+
     } else if (strcmp(cline, ("debug")) == 0) {
         if (argc == 2) {
           debug = atoi(argv[1]);
@@ -508,13 +500,14 @@ void parse_cmd(char *cline, int cnt) {
         xprint(" corrected ");
         xprint_int(rexmitOK);
         xprint("\n");
-        xprint("Que depth ");
-        xprint_int(quedepth);
-        xprint("\n");
-        xprint("Que max ");
-        xprint_int(quemax);
-        xprint("\n");
+//        xprint("Que depth ");
+//        xprint_int(quedepth);
+//        xprint("\n");
+//        xprint("Que max ");
+//        xprint_int(quemax);
+//        xprint("\n");
 // to debug ebufs
+#ifdef NEWCNT
         xprint(" Internal dropped packets Ether Radio\n");
         xprint_int(droppedEthPackets);
         xprint("      ");
@@ -522,7 +515,28 @@ void parse_cmd(char *cline, int cnt) {
         xprint("   Get - Free = used      ");
         xprint_int(ebufsused);
         xprint("\n");
-
+#else
+        xprint("Buffers used now max\n");
+        xprint(" bufferPool ");
+        if(ampr_poolSize() < poolmin)
+        	poolmin = ampr_poolSize();
+        xprint_int(ampr_poolSize());
+        xprint(" ");
+        xprint_int(poolmin);
+        xprint("\n");
+        xprint(" Eth queue ");
+        xprint_int(ampr_ethQueueSize());
+        xprint(" ");
+        xprint_int(ethmax);
+        xprint("\n");
+        xprint(" Radio queue ");
+        if(ampr_QueueSize() > radiomax)
+        	radiomax = ampr_QueueSize();
+        xprint_int(ampr_QueueSize());
+        xprint(" ");
+        xprint_int(radiomax);
+        xprint("\n");
+#endif
 
 /*        xprint("Eth ints ");
         xprint_int(eints);
