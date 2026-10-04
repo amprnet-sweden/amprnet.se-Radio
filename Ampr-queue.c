@@ -1,21 +1,3 @@
-
-/*
- * Copyright (C) 2024 AMPRNet Sweden
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */ 
 #include "Ampr-queue.h"
 
 /* RTOS header files */
@@ -53,7 +35,8 @@ void ampr_queueEth(ethBufHandle_t* bufferHandle) {
         droppedEthPackets++;
         xprint("dropped\n");
     } else {
-
+        if(ampr_ethQueueSize() > ethmax)
+        	ethmax = ampr_ethQueueSize();
 //    xprint("queued\n");
     }
 }
@@ -80,7 +63,9 @@ ethBufHandle_t ampr_dequeueEth() {
 uint16_t ampr_ethQueueSize() {
     return (uint16_t)uxQueueMessagesWaiting(ethQueue);
 }
-
+uint16_t ampr_QueueSize() {
+    return (uint16_t)uxQueueMessagesWaiting(amprQueue);
+}
 bool ampr_ethQueueEmpty() {
     return ampr_ethQueueSize() == 0;
 }
@@ -100,5 +85,8 @@ void ampr_queueRadioTX()
     entry.type = AMPR_QUEUE_TX_SLOT;
     if(!xQueueSend(amprQueue, &entry, 0)) { // The timeout must be 0 since this function is called from a timer context so it must not block
         droppedRadioSlots++;
+    } else {
+        if(ampr_QueueSize() > radiomax)
+        	radiomax = ampr_QueueSize();
     }
 }
